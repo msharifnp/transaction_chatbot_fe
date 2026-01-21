@@ -39,9 +39,27 @@ export default function ChatWindow({
   const [isOpen, setIsOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const messages = [
+  "Fetching invoices",
+  "Analyzing data",
+  "Preparing response",
+];
+const [step, setStep] = useState(0);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, loading]);
+
+  useEffect(() => {
+  if (!loading) return;
+
+  const i = setInterval(() => {
+    setStep((s) => (s + 1) % messages.length);
+  }, 1500);
+
+  return () => clearInterval(i);
+}, [loading]);
+
 
   const send = () => {
     if (!query.trim()) return;
@@ -51,6 +69,14 @@ export default function ChatWindow({
 
   return (
     <>
+     <style>
+      {`
+        @keyframes skeleton {
+          0% { background-position: 100% 0; }
+          100% { background-position: 0 0; }
+        }
+      `}
+    </style>
       {/* FLOATING OPEN BUTTON */}
       {!isOpen && (
         <button
@@ -670,10 +696,29 @@ export default function ChatWindow({
               ))}
 
               {loading && (
-                <div style={{ fontSize: 12, color: "#475569" }}>
-                  📄 Processing...
+                <div
+                  style={{
+                    width: 260,
+                    height: 38,
+                    borderRadius: 14,
+                    background:
+                      "linear-gradient(90deg, #ececf0 25%, #93c5fd 37%, #c7d2fe 63%)",
+                    backgroundSize: "400% 100%",
+                    animation: "skeleton 1.4s ease infinite",
+                    alignSelf: "flex-start",
+                    display: "flex",
+                    alignItems: "center",
+                    paddingLeft: 14,
+                    color: "#1e293b",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {messages[step]}…
                 </div>
               )}
+
+
 
               <div ref={chatEndRef} />
             </div>
@@ -714,19 +759,33 @@ export default function ChatWindow({
                 onClick={send}
                 disabled={!query.trim()}
                 style={{
-                  padding: "0 22px",
-                  height: 44,
+                  width: 84,              // 👈 fixed width (same visual size)
+                  height: 84,
                   borderRadius: 10,
                   border: "none",
                   background: query.trim() ? "#2563eb" : "#cbd5e1",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 14,
                   cursor: query.trim() ? "pointer" : "not-allowed",
+
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                Send
+                <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="white"
+                style={{
+                  transform: "rotate(180deg)", // ✅ fixes direction
+                  opacity: query.trim() ? 1 : 0.6,
+                }}
+              >
+                <path d="M3 12L21 3L14 12L21 21L3 12Z" />
+              </svg>
+
               </button>
+
             </div>
           </section>
         </div>
@@ -734,3 +793,5 @@ export default function ChatWindow({
     </>
   );
 }
+
+
