@@ -24,12 +24,16 @@ type Props = {
   onExportWord: (messageIndex: number) => void;
   onExportExcel: (messageIndex: number) => void;
   onExportChartPNG: (messageIndex: number) => void;
+  onOpen: () => void;   
+  onClose: () => void;  
 };
 
 export default function ChatWindow({
   chatHistory,
   loading,
   onSend,
+  onOpen,
+  onClose,
   onExportPDF,
   onExportWord,
   onExportExcel,
@@ -80,7 +84,9 @@ const [step, setStep] = useState(0);
       {/* FLOATING OPEN BUTTON */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {setIsOpen(true);
+            onOpen();}
+          }
           style={{
             position: "fixed",
             bottom: 24,
@@ -135,17 +141,20 @@ const [step, setStep] = useState(0);
               Smart Invoice Assistant
             </div>
             <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                border: "none",
-                background: "transparent",
-                fontSize: 20,
-                cursor: "pointer",
-                color: "#020617",
-              }}
-            >
-              ×
-            </button>
+  onClick={() => {
+    setIsOpen(false);
+    onClose();
+  }}
+  style={{
+    border: "none",
+    background: "transparent",
+    fontSize: 20,
+    cursor: "pointer",
+    color: "#020617",
+  }}
+>
+  ×
+</button>
           </header>
 
           {/* INNER PANEL */}

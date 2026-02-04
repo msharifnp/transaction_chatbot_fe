@@ -9,149 +9,171 @@ import {
   HybridData,
 } from "../types/chat";
 
-export function useChat(tenantId: string, sessionId: string) {
+export function useChat(
+  tenantId: string,
+  sessionIdRef: React.MutableRefObject<string | null>,
+  setSessionId: (id: string) => void
+) {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (query: string) => {
-    if (!query.trim()) return;
+  const sendMessage = useCallback(
+    async (query: string) => {
+      if (!query.trim()) return;
 
-    setLoading(true);
-    setErr(null);
+      setLoading(true);
+      setErr(null);
 
-    const userMsg: ChatMessage = {
-      role: "user",
-      content: query,
-      timestamp: new Date().toISOString(),
-    };
-    setChatHistory((p) => [...p, userMsg]);
+      const userMsg: ChatMessage = {
+        role: "user",
+        content: query,
+        timestamp: new Date().toISOString(),
+      };
 
-    try {
-      const res = await searchApi({
-        query,
-        TenantId: tenantId,
-        SessionId: sessionId,
-      });
+      setChatHistory((p) => [...p, userMsg]);
 
-      const apiResponse = res.data as ApiResponse;
-      const data = apiResponse.data as
-        | DatabaseData
-        | MessageData
-        | ChatData
-        | HybridData;
-
-      console.log('[useChat] Response type:', data.response_type);
-
-      // ==================== MESSAGE MODE ====================
-      if (data.response_type === "message") {
-        setChatHistory((p) => [
-          ...p,
-          {
-            role: "assistant",
-            content: data.response_message,
-            timestamp: new Date().toISOString(),
-            mode: "message",
-          },
-        ]);
-      }
-
-      // ==================== AI MODE ====================
-      if (data.response_type === "ai") {
-        const messages: ChatMessage[] = [];
+      try {
+        console.log("[useChat] 📤 Sending message with SessionId:", sessionIdRef.current);
+        console.log("[useChat] Query:", query);
         
-        // Add analysis text if exists
-        if (data.analysis_text) {
-          messages.push({
-            role: "assistant",
-            content: data.analysis_text.text,
-            timestamp: new Date().toISOString(),
-            mode: "model",
-            messageIndex: data.analysis_text.index,
-          });
-          console.log('[useChat] Added analysis text with index:', data.analysis_text.index);
+        const res = await searchApi({
+          query,
+          TenantId: tenantId,
+          SessionId: sessionIdRef.current, // ✅ always latest
+        });
+
+        const apiResponse = res.data as ApiResponse;
+        
+        console.log("[useChat] 📥 Response received, SessionId still:", sessionIdRef.current);
+
+        // =========================================================
+        // 🔥 CRITICAL: HANDLE SESSION ROTATION FROM BACKEND
+        // =========================================================
+        if (apiResponse.metadata?.new_session_id) {
+          console.log("[useChat] ⚠️ Backend returned new SessionId (old one expired)");
+          console.log("[useChat] Old SessionId:", sessionIdRef.current);
+          console.log("[useChat] New SessionId:", apiResponse.metadata.new_session_id);
+          
+          sessionIdRef.current = apiResponse.metadata.new_session_id;
+          setSessionId(apiResponse.metadata.new_session_id);
+
+          console.log("[useChat] ✅ Updated sessionIdRef to:", sessionIdRef.current);
+        } else {
+          console.log("[useChat] ✅ No session rotation needed, keeping:", sessionIdRef.current);
         }
-        
-        // Add chart if exists
-        if (data.chart) {
-          messages.push({
-            role: "assistant",
-            content: data.chart.svg,
-            timestamp: new Date().toISOString(),
-            mode: "model",
-            messageIndex: data.chart.index,
-          });
-          console.log('[useChat] Added chart with index:', data.chart.index);
-        }
-        
-        // Fallback if no content
-        if (messages.length === 0) {
-          messages.push({
-            role: "assistant",
-            content: "I couldn't generate a response.",
-            timestamp: new Date().toISOString(),
-            mode: "model",
-          });
-        }
-        
-        setChatHistory((p) => [...p, ...messages]);
-      }
 
-      // ==================== DATABASE MODE ====================
-      if (data.response_type === "database") {
-        setChatHistory((p) => [
-          ...p,
-          {
-            role: "assistant",
-            timestamp: new Date().toISOString(),
-            mode: "database",
-            messageIndex: data.index,
-            data: {
-              columns: data.columns,
-              rows: data.rows,
-              count: data.count,
+        const data = apiResponse.data as
+          | DatabaseData
+          | MessageData
+          | ChatData
+          | HybridData;
+
+        console.log("[useChat] Response type:", data.response_type);
+
+        // ==================== MESSAGE MODE ====================
+        if (data.response_type === "message") {
+          setChatHistory((p) => [
+            ...p,
+            {
+              role: "assistant",
+              content: data.response_message,
+              timestamp: new Date().toISOString(),
+              mode: "message",
             },
-          },
-        ]);
-        console.log('[useChat] Added database table with index:', data.index);
-      }
+          ]);
+        }
 
-      // ==================== HYBRID MODE ====================
-      if (data.response_type === "hybrid") {
-        console.log('[useChat] Processing hybrid response');
+        // ==================== AI MODE ====================
+        if (data.response_type === "ai") {
+          const messages: ChatMessage[] = [];
 
-        setChatHistory((p) => [
-          ...p,
-          {
-            role: "assistant",
-            timestamp: new Date().toISOString(),
-            mode: "hybrid",
-            messageIndex: data.ai.analysis_text?.index ?? data.ai.chart?.index,
-            hybridData: {
-              database: {
-                columns: data.database.columns,
-                rows: data.database.rows,
-                count: data.database.count,
-                index: data.database.index,
-              },
-              ai: {
-                analysisText: data.ai.analysis_text?.text,
-                analysisIndex: data.ai.analysis_text?.index,
-                chart: data.ai.chart?.svg,
-                chartIndex: data.ai.chart?.index,
+          if (data.analysis_text) {
+            messages.push({
+              role: "assistant",
+              content: data.analysis_text.text,
+              timestamp: new Date().toISOString(),
+              mode: "model",
+              messageIndex: data.analysis_text.index,
+            });
+          }
+
+          if (data.chart) {
+            messages.push({
+              role: "assistant",
+              content: data.chart.svg,
+              timestamp: new Date().toISOString(),
+              mode: "model",
+              messageIndex: data.chart.index,
+            });
+          }
+
+          if (messages.length === 0) {
+            messages.push({
+              role: "assistant",
+              content: "I couldn't generate a response.",
+              timestamp: new Date().toISOString(),
+              mode: "model",
+            });
+          }
+
+          setChatHistory((p) => [...p, ...messages]);
+        }
+
+        // ==================== DATABASE MODE ====================
+        if (data.response_type === "database") {
+          setChatHistory((p) => [
+            ...p,
+            {
+              role: "assistant",
+              timestamp: new Date().toISOString(),
+              mode: "database",
+              messageIndex: data.index,
+              data: {
+                columns: data.columns,
+                rows: data.rows,
+                count: data.count,
               },
             },
-          },
-        ]);
-        console.log('[useChat] Added hybrid response');
+          ]);
+        }
+
+        // ==================== HYBRID MODE ====================
+        if (data.response_type === "hybrid") {
+          setChatHistory((p) => [
+            ...p,
+            {
+              role: "assistant",
+              timestamp: new Date().toISOString(),
+              mode: "hybrid",
+              messageIndex:
+                data.ai.analysis_text?.index ?? data.ai.chart?.index,
+              hybridData: {
+                database: {
+                  columns: data.database.columns,
+                  rows: data.database.rows,
+                  count: data.database.count,
+                  index: data.database.index,
+                },
+                ai: {
+                  analysisText: data.ai.analysis_text?.text,
+                  analysisIndex: data.ai.analysis_text?.index,
+                  chart: data.ai.chart?.svg,
+                  chartIndex: data.ai.chart?.index,
+                },
+              },
+            },
+          ]);
+        }
+      } catch (e: any) {
+        setErr(e?.message || "Request failed");
+        console.error("[useChat] Error:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e: any) {
-      setErr(e?.message || "Request failed");
-      console.error('[useChat] Error:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId, sessionId]);
+    },
+    [tenantId, sessionIdRef, setSessionId]
+  );
 
   return { chatHistory, loading, err, sendMessage };
 }

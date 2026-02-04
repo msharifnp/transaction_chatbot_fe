@@ -34,6 +34,9 @@ export interface ApiResponse {
   code: number;
   message: string;
   errors: string[];
+  metadata?: {
+    new_session_id?: string;
+  };
   data: DatabaseData | MessageData | ChatData | HybridData;
 }
 

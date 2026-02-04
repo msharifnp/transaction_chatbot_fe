@@ -4,25 +4,130 @@ import { ApiResponse } from "../types/chat";
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
-export function searchApi(payload: any) {
+// ================= SESSION =================
+
+export function startSession(tenantId: string) {
+  console.log("[startSession] 🚀 Starting session for tenant:", tenantId);
+  
+  return axios.post(
+    `${API_BASE}/api/session/start`,
+    {},
+    {
+      headers: { TenantId: tenantId },
+      timeout: 10000,
+    }
+  ).then((res) => {
+    console.log("[startSession] ✅ Response received:", res.data);
+    return res;
+  }).catch((err) => {
+    console.error("[startSession] ❌ Error:", err);
+    throw err;
+  });
+}
+
+export const endSession = (tenantId: string, sessionId: string) => {
+  return axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/api/session/end`,
+    {},
+    {
+      headers: {
+        TenantId: tenantId,
+        SessionId: sessionId,
+      },
+    }
+  );
+};
+
+
+// ================= SEARCH =================
+
+export function searchApi(payload: {
+  query: string;
+  TenantId: string;
+  SessionId: string | null;
+}) {
+  console.log("[searchApi] 🚀 Sending with headers:", {
+    TenantId: payload.TenantId,
+    SessionId: payload.SessionId,
+  });
+  
   return axios.post<ApiResponse>(
     `${API_BASE}/api/search`,
-    payload,
-    { timeout: 300000 }
+    { query: payload.query },
+    {
+      headers: {
+        TenantId: payload.TenantId,
+        SessionId: payload.SessionId ?? "",
+      },
+      timeout: 300000,
+    }
   );
 }
 
-// ✅ NEW: POST-based export functions
+// ================= EXPORTS =================
+function cleanParams(params: Record<string, any>) {
+  return Object.fromEntries(
+    Object.entries(params).filter(
+      ([_, v]) => v !== undefined && v !== null
+    )
+  );
+}
+
+async function exportGet(
+  url: string,
+  headers: { TenantId: string; SessionId: string },
+  params: Record<string, any>
+) {
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        ...headers,
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+      params: cleanParams({
+        ...params,
+        _t: Date.now(),   // 🔥 cache buster
+      }),
+      responseType: "blob",
+      timeout: 30000,
+    });
+
+    return res;
+
+  } catch (err: any) {
+    if (err.response?.data instanceof Blob) {
+      const text = await err.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        throw new Error(json.detail || "Data expired. Please run the query again.");
+      } catch {
+        throw new Error("Data expired. Please run the query again.");
+      }
+    }
+
+    throw new Error("Data expired. Please run the query again.");
+  }
+}
+
+
+
 export function exportPDF(payload: {
   TenantId: string;
   SessionId: string;
   index: number;
   title?: string;
 }) {
-  return axios.post(
+  return exportGet(
     `${API_BASE}/api/export/pdf`,
-    { title: "Financial Report", ...payload },
-    { responseType: "blob", timeout: 30000 }
+    {
+      TenantId: payload.TenantId,
+      SessionId: payload.SessionId,
+    },
+    {
+      index: payload.index,
+      title: payload.title,
+    }
   );
 }
 
@@ -32,12 +137,19 @@ export function exportWord(payload: {
   index: number;
   title?: string;
 }) {
-  return axios.post(
+  return exportGet(
     `${API_BASE}/api/export/word`,
-    { title: "Financial Report", ...payload },
-    { responseType: "blob", timeout: 30000 }
+    {
+      TenantId: payload.TenantId,
+      SessionId: payload.SessionId,
+    },
+    {
+      index: payload.index,
+      title: payload.title,
+    }
   );
 }
+
 
 export function exportExcel(payload: {
   TenantId: string;
@@ -45,12 +157,19 @@ export function exportExcel(payload: {
   index: number;
   sheet_name?: string;
 }) {
-  return axios.post(
+  return exportGet(
     `${API_BASE}/api/export/excel`,
-    { sheet_name: "Financial Data", ...payload },
-    { responseType: "blob", timeout: 30000 }
+    {
+      TenantId: payload.TenantId,
+      SessionId: payload.SessionId,
+    },
+    {
+      index: payload.index,
+      sheet_name: payload.sheet_name,
+    }
   );
 }
+
 
 export function exportPNG(payload: {
   TenantId: string;
@@ -59,10 +178,16 @@ export function exportPNG(payload: {
   width?: number;
   height?: number;
 }) {
-  return axios.post(
+  return exportGet(
     `${API_BASE}/api/export/png`,
-    { width: 1920, height: 1120, ...payload },
-    { responseType: "blob", timeout: 30000 }
+    {
+      TenantId: payload.TenantId,
+      SessionId: payload.SessionId,
+    },
+    {
+      index: payload.index,
+      width: payload.width,
+      height: payload.height,
+    }
   );
 }
-
