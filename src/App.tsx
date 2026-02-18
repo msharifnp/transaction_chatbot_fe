@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { useChat } from "./hooks/useChat";
-import Home from "./pages/Home";
 import ChatWindow from "./components/ChatWindow";
 import { startSession as apiStartSession } from "./api/searchApi";
 import { endSession as apiEndSession } from "./api/searchApi";
@@ -12,7 +11,7 @@ import {
 } from "./utils/export";
 
 export default function App() {
-  const tenantId = "a5fbcb69-eda8-20bd-4c29-3a1a8969d9e4";
+  const tenantId = "A10000";
 
   // Backend-controlled session
   const sessionIdRef = useRef<string | null>(null);
@@ -63,36 +62,20 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
-      <div className="main-layout">
-        <div className="chat-section">
-          <ChatWindow
-            chatHistory={chatHistory}
-            loading={loading}
-            onSend={sendMessage}
-            onOpen={() => {
-              startSession();
-            }}
-            onClose={endSession}
-            onExportPDF={(index) =>
-              exportToPDF(tenantId, sessionIdRef.current, index)
-            }
-            onExportWord={(index) =>
-              exportToWord(tenantId, sessionIdRef.current, index)
-            }
-            onExportExcel={(index) =>
-              exportToExcel(tenantId, sessionIdRef.current, index)
-            }
-            onExportChartPNG={(index) =>
-              exportChartPNG(tenantId, sessionIdRef.current, index)
-            }
-          />
-        </div>
-
-        <div className="transaction-section">
-          <Home tenantId={tenantId} />
-        </div>
-      </div>
-    </div>
+    <ChatWindow
+      chatHistory={chatHistory}
+      loading={loading}
+      onSend={sendMessage}
+      onOpen={() => {
+        startSession();
+      }}
+      onClose={endSession}
+      onExportPDF={(index) => exportToPDF(tenantId, sessionIdRef.current, index)}
+      onExportWord={(index) => exportToWord(tenantId, sessionIdRef.current, index)}
+      onExportExcel={(index) => exportToExcel(tenantId, sessionIdRef.current, index)}
+      onExportChartPNG={(index) =>
+        exportChartPNG(tenantId, sessionIdRef.current, index)
+      }
+    />
   );
 }

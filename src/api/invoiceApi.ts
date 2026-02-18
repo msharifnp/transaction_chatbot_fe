@@ -18,7 +18,7 @@ export interface Invoice {
 export interface InvoiceResponse {
   success: boolean;
   message: string;
-  data: Invoice[];
+  data: Invoice[] | { rows: Invoice[] } | null;
   code: number;
 }
 
@@ -27,7 +27,7 @@ export function fetchInvoices(
   fromDate: string,
   toDate: string
 ) {
-  console.log("[fetchInvoices] 🚀 Fetching invoices:", { fromDate, toDate });
+  console.log("[fetchInvoices] 🚀 Fetching inventory:", { fromDate, toDate });
 
   return axios.get<InvoiceResponse>(`${API_BASE}/api/invoices/fetch`, {
     params: {
@@ -43,14 +43,13 @@ export function fetchInvoices(
     
     // Handle different response structures
     let invoices: Invoice[] = [];
-    if (res.data.data) {
-      if (Array.isArray(res.data.data)) {
-        // If data is already an array of invoices
-        invoices = res.data.data;
-      } else if (res.data.data.rows && Array.isArray(res.data.data.rows)) {
-        // If data has rows property (objects with column keys)
-        invoices = res.data.data.rows;
-      }
+    const payload = res.data.data;
+    if (Array.isArray(payload)) {
+      // If data is already an array of invoices
+      invoices = payload;
+    } else if (payload && Array.isArray(payload.rows)) {
+      // If data has rows property (objects with column keys)
+      invoices = payload.rows;
     }
     
     console.log("[fetchInvoices] Parsed invoices:", invoices);

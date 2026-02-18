@@ -16,6 +16,21 @@ const COLUMN_WIDTHS: Record<string, number> = {
   default: 150,
 };
 
+const THEME = {
+  bg: "#f3f4f6",
+  panel: "#ffffff",
+  border: "#9EC5CA",
+  accent: "#2F5597",
+  accentSoft: "#e8edf7",
+  text: "#1f2937",
+  subtext: "#5f6b7a",
+  userBubble: "#D7EBEE",
+  assistantBubble: "#e5e7eb",
+};
+
+const INPUT_MIN_HEIGHT = 66;
+const INPUT_MAX_HEIGHT = 240;
+
 type Props = {
   chatHistory: ChatMessage[];
   loading: boolean;
@@ -41,34 +56,45 @@ export default function ChatWindow({
 }: Props) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const messages = [
-  "Fetching invoices",
-  "Analyzing data",
-  "Preparing response",
-];
-const [step, setStep] = useState(0);
+  const messages = ["Fetching inventory records", "Analyzing data", "Preparing response"];
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, loading]);
 
   useEffect(() => {
-  if (!loading) return;
+    if (!loading) return;
 
-  const i = setInterval(() => {
-    setStep((s) => (s + 1) % messages.length);
-  }, 1500);
+    const i = setInterval(() => {
+      setStep((s) => (s + 1) % messages.length);
+    }, 1500);
 
-  return () => clearInterval(i);
-}, [loading]);
+    return () => clearInterval(i);
+  }, [loading]);
 
 
   const send = () => {
     if (!query.trim()) return;
     onSend(query.trim());
     setQuery("");
+    setInputHeight(INPUT_MIN_HEIGHT);
+  };
+
+  const handleInputChange = (value: string) => {
+    setQuery(value);
+    if (!inputRef.current) return;
+    inputRef.current.style.height = "auto";
+    const next = Math.min(
+      Math.max(inputRef.current.scrollHeight, INPUT_MIN_HEIGHT),
+      INPUT_MAX_HEIGHT
+    );
+    inputRef.current.style.height = `${next}px`;
+    setInputHeight(next);
   };
 
   return (
@@ -93,17 +119,17 @@ const [step, setStep] = useState(0);
             right: 24,
             zIndex: 9999,
             borderRadius: 999,
-            background: "#0f172a",
+            background: THEME.accent,
             color: "#fff",
             border: "none",
             padding: "12px 20px",
             fontSize: 14,
             fontWeight: 700,
             cursor: "pointer",
-            boxShadow: "0 12px 30px rgba(15,23,42,0.35)",
+            boxShadow: "0 12px 30px rgba(47,85,151,0.28)",
           }}
         >
-          Ask IVP
+          Ask IA
         </button>
       )}
 
@@ -118,9 +144,10 @@ const [step, setStep] = useState(0);
             width: 960,
             maxWidth: "95vw",
             height: "calc(100vh - 48px)",
-            background: "#e0f2fe",
+            background: THEME.panel,
             borderRadius: 24,
-            boxShadow: "0 18px 45px rgba(15,23,42,0.28)",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.18)",
+            border: `1px solid ${THEME.border}`,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -130,15 +157,15 @@ const [step, setStep] = useState(0);
           <header
             style={{
               padding: "18px 24px",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: `1px solid ${THEME.border}`,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              background: "#e0f2fe",
+              background: THEME.panel,
             }}
           >
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#020617" }}>
-              Smart Invoice Assistant
+            <div style={{ fontSize: 18, fontWeight: 700, color: THEME.accent }}>
+              Smart Inventory Assistant
             </div>
             <button
   onClick={() => {
@@ -150,7 +177,7 @@ const [step, setStep] = useState(0);
     background: "transparent",
     fontSize: 20,
     cursor: "pointer",
-    color: "#020617",
+    color: THEME.accent,
   }}
 >
   ×
@@ -163,8 +190,8 @@ const [step, setStep] = useState(0);
               flex: 1,
               margin: 16,
               borderRadius: 16,
-              border: "1px solid #e2e8f0",
-              background: "#ffffff",
+              border: `1px solid ${THEME.border}`,
+              background: "#fafafa",
               display: "flex",
               flexDirection: "column",
               minHeight: 0,
@@ -179,7 +206,7 @@ const [step, setStep] = useState(0);
                 display: "flex",
                 flexDirection: "column",
                 gap: 14,
-                background: "#f8fafc",
+                background: THEME.bg,
               }}
             >
               {chatHistory.map((msg, i) => (
@@ -197,10 +224,10 @@ const [step, setStep] = useState(0);
                       padding: "12px 14px",
                       borderRadius: 14,
                       background:
-                        msg.role === "user" ? "#e0ebff" : "#ffffff",
-                      border: "1px solid #e2e8f0",
+                        msg.role === "user" ? THEME.userBubble : THEME.assistantBubble,
+                      border: `1px solid ${THEME.border}`,
                       fontSize: 13,
-                      color: "#0f172a",
+                      color: THEME.text,
                     }}
                   >
                     <div
@@ -208,10 +235,10 @@ const [step, setStep] = useState(0);
                         fontSize: 12,
                         fontWeight: 700,
                         marginBottom: 6,
-                        color: "#334155",
+                        color: THEME.accent,
                       }}
                     >
-                      {msg.role === "user" ? "You" : "AI Assistant"}
+                      {msg.role === "user" ? "You" : "AI"}
                     </div>
 
                     {/* ================= DATABASE MODE ================= */}
@@ -221,8 +248,8 @@ const [step, setStep] = useState(0);
                           marginTop: 8,
                           padding: 12,
                           borderRadius: 12,
-                          background: "#eff6ff",
-                          border: "1px solid #dbeafe",
+                          background: THEME.accentSoft,
+                          border: `1px solid ${THEME.border}`,
                         }}
                       >
                         <div
@@ -234,7 +261,7 @@ const [step, setStep] = useState(0);
                           }}
                         >
                           <div style={{ fontWeight: 700, fontSize: 13 }}>
-                            Data results ({msg.data.count})
+                            Found {msg.data.count} records. Only 5 showing here. to see full results, please export to Excel.
                           </div>
 
                           {msg.messageIndex !== undefined && (
@@ -246,9 +273,9 @@ const [step, setStep] = useState(0);
                                 gap: 6,
                                 padding: "6px 14px",
                                 borderRadius: 8,
-                                border: "1px solid #22c55e",
-                                background: "#ecfdf5",
-                                color: "#15803d",
+                                border: `1px solid ${THEME.border}`,
+                                background: "#ffffff",
+                                color: THEME.accent,
                                 fontSize: 13,
                                 fontWeight: 700,
                                 cursor: "pointer",
@@ -265,7 +292,7 @@ const [step, setStep] = useState(0);
                             overflow: "auto",
                             background: "#ffffff",
                             borderRadius: 8,
-                            border: "1px solid #c7d2fe",
+                            border: `1px solid ${THEME.border}`,
                           }}
                         >
                           <table
@@ -339,8 +366,8 @@ const [step, setStep] = useState(0);
                             marginTop: 8,
                             padding: 12,
                             borderRadius: 12,
-                            background: "#eff6ff",
-                            border: "1px solid #dbeafe",
+                          background: THEME.accentSoft,
+                          border: `1px solid ${THEME.border}`,
                           }}
                         >
                           <div
@@ -352,7 +379,7 @@ const [step, setStep] = useState(0);
                             }}
                           >
                             <div style={{ fontWeight: 700, fontSize: 13 }}>
-                              Data results ({msg.hybridData.database.count})
+                               Found {msg.hybridData.database.count} records. Only 5 showing here. to see full results, please export to Excel
                             </div>
 
                             <button
@@ -363,9 +390,9 @@ const [step, setStep] = useState(0);
                                 gap: 6,
                                 padding: "6px 14px",
                                 borderRadius: 8,
-                                border: "1px solid #22c55e",
-                                background: "#ecfdf5",
-                                color: "#15803d",
+                                border: `1px solid ${THEME.border}`,
+                                background: "#ffffff",
+                                color: THEME.accent,
                                 fontSize: 13,
                                 fontWeight: 700,
                                 cursor: "pointer",
@@ -381,7 +408,7 @@ const [step, setStep] = useState(0);
                               overflow: "auto",
                               background: "#ffffff",
                               borderRadius: 8,
-                              border: "1px solid #c7d2fe",
+                              border: `1px solid ${THEME.border}`,
                             }}
                           >
                             <table
@@ -449,11 +476,11 @@ const [step, setStep] = useState(0);
                         {msg.hybridData.ai.analysisText && (
                           <div
                             style={{
-                              marginTop: 12,
-                              padding: 12,
-                              borderRadius: 12,
-                              background: "#f0fdf4",
-                              border: "1px solid #dcfce7",
+                              marginTop: 8,
+                              padding: 0,
+                              borderRadius: 0,
+                              background: "transparent",
+                              border: "none",
                             }}
                           >
                             <div
@@ -464,15 +491,7 @@ const [step, setStep] = useState(0);
                                 marginBottom: 8,
                               }}
                             >
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  color: "#166534",
-                                }}
-                              >
-                                AI Analysis
-                              </div>
+                              <div />
 
                               {msg.hybridData.ai.analysisIndex !== undefined && (
                                 <div style={{ display: "flex", gap: 8 }}>
@@ -481,9 +500,9 @@ const [step, setStep] = useState(0);
                                     style={{
                                       padding: "6px 14px",
                                       borderRadius: 8,
-                                      border: "1px solid #fecaca",
+                                      border: `1px solid ${THEME.border}`,
                                       background: "#ffffff",
-                                      color: "#dc2626",
+                                      color: THEME.accent,
                                       fontSize: 13,
                                       fontWeight: 600,
                                       cursor: "pointer",
@@ -497,9 +516,9 @@ const [step, setStep] = useState(0);
                                     style={{
                                       padding: "6px 14px",
                                       borderRadius: 8,
-                                      border: "1px solid #bfdbfe",
+                                      border: `1px solid ${THEME.border}`,
                                       background: "#ffffff",
-                                      color: "#2563eb",
+                                      color: THEME.accent,
                                       fontSize: 13,
                                       fontWeight: 600,
                                       cursor: "pointer",
@@ -522,8 +541,8 @@ const [step, setStep] = useState(0);
                               marginTop: 12,
                               padding: 12,
                               borderRadius: 12,
-                              background: "#f0fdf4",
-                              border: "1px solid #dcfce7",
+                              background: THEME.accentSoft,
+                              border: `1px solid ${THEME.border}`,
                             }}
                           >
                             <div
@@ -534,7 +553,7 @@ const [step, setStep] = useState(0);
                                 marginBottom: 8,
                               }}
                             >
-                              <div style={{ fontSize: 13, fontWeight: 700, color: "#166534" }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: THEME.accent }}>
                                 Chart Visualization
                               </div>
 
@@ -544,9 +563,9 @@ const [step, setStep] = useState(0);
                                   style={{
                                     padding: "4px 8px",
                                     borderRadius: 6,
-                                    border: "1px solid #86efac",
+                                    border: `1px solid ${THEME.border}`,
                                     background: "#ffffff",
-                                    color: "#166534",
+                                    color: THEME.accent,
                                     fontSize: 11,
                                     fontWeight: 600,
                                     cursor: "pointer",
@@ -579,10 +598,10 @@ const [step, setStep] = useState(0);
                         <div
                           style={{
                             marginTop: 8,
-                            padding: 12,
-                            borderRadius: 12,
-                            background: "#f0fdf4",
-                            border: "1px solid #dcfce7",
+                            padding: 0,
+                            borderRadius: 0,
+                            background: "transparent",
+                            border: "none",
                           }}
                         >
                           <div
@@ -593,15 +612,7 @@ const [step, setStep] = useState(0);
                               marginBottom: 8,
                             }}
                           >
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 700,
-                                color: "#166534",
-                              }}
-                            >
-                              AI Analysis
-                            </div>
+                            <div />
 
                             {msg.messageIndex !== undefined && (
                               <div style={{ display: "flex", gap: 8 }}>
@@ -610,9 +621,9 @@ const [step, setStep] = useState(0);
                                   style={{
                                     padding: "6px 14px",
                                     borderRadius: 8,
-                                    border: "1px solid #fecaca",
+                                    border: `1px solid ${THEME.border}`,
                                     background: "#ffffff",
-                                    color: "#dc2626",
+                                    color: THEME.accent,
                                     fontSize: 13,
                                     fontWeight: 600,
                                     cursor: "pointer",
@@ -626,9 +637,9 @@ const [step, setStep] = useState(0);
                                   style={{
                                     padding: "6px 14px",
                                     borderRadius: 8,
-                                    border: "1px solid #bfdbfe",
+                                    border: `1px solid ${THEME.border}`,
                                     background: "#ffffff",
-                                    color: "#2563eb",
+                                    color: THEME.accent,
                                     fontSize: 13,
                                     fontWeight: 600,
                                     cursor: "pointer",
@@ -654,8 +665,8 @@ const [step, setStep] = useState(0);
                             marginTop: 8,
                             padding: 12,
                             borderRadius: 12,
-                            background: "#f0fdf4",
-                            border: "1px solid #dcfce7",
+                            background: THEME.accentSoft,
+                            border: `1px solid ${THEME.border}`,
                           }}
                         >
                           <div
@@ -666,7 +677,7 @@ const [step, setStep] = useState(0);
                               marginBottom: 8,
                             }}
                           >
-                            <div style={{ fontSize: 13, fontWeight: 700, color: "#166534" }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: THEME.accent }}>
                               Chart Visualization
                             </div>
 
@@ -676,9 +687,9 @@ const [step, setStep] = useState(0);
                                 style={{
                                   padding: "4px 8px",
                                   borderRadius: 6,
-                                  border: "1px solid #86efac",
+                                  border: `1px solid ${THEME.border}`,
                                   background: "#ffffff",
-                                  color: "#166534",
+                                  color: THEME.accent,
                                   fontSize: 11,
                                   fontWeight: 600,
                                   cursor: "pointer",
@@ -711,14 +722,14 @@ const [step, setStep] = useState(0);
                     height: 38,
                     borderRadius: 14,
                     background:
-                      "linear-gradient(90deg, #ececf0 25%, #93c5fd 37%, #c7d2fe 63%)",
+                      "linear-gradient(90deg, #e8ebef 25%, #d9e3f2 37%, #edf2f8 63%)",
                     backgroundSize: "400% 100%",
                     animation: "skeleton 1.4s ease infinite",
                     alignSelf: "flex-start",
                     display: "flex",
                     alignItems: "center",
                     paddingLeft: 14,
-                    color: "#1e293b",
+                    color: THEME.accent,
                     fontSize: 12,
                     fontWeight: 600,
                   }}
@@ -736,16 +747,18 @@ const [step, setStep] = useState(0);
             <div
               style={{
                 padding: 16,
-                borderTop: "1px solid #e2e8f0",
+                borderTop: `1px solid ${THEME.border}`,
                 display: "flex",
                 gap: 10,
-                background: "#ffffff",
+                background: THEME.panel,
+                alignItems: "stretch",
               }}
             >
               <textarea
+                ref={inputRef}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask anything about invoice..."
+                onChange={(e) => handleInputChange(e.target.value)}
+                placeholder="Ask anything about inventory..."
                 rows={1}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -755,24 +768,31 @@ const [step, setStep] = useState(0);
                 }}
                 style={{
                   flex: 1,
+                  boxSizing: "border-box",
                   resize: "none",
-                  padding: "12px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 14,
-                  minHeight: 44,
+                  padding: "18px 21px",
+                  borderRadius: 15,
+                  border: `1px solid ${THEME.border}`,
+                  fontSize: 21,
+                  minHeight: INPUT_MIN_HEIGHT,
+                  height: inputHeight,
+                  maxHeight: INPUT_MAX_HEIGHT,
                   outline: "none",
+                  color: THEME.text,
+                  background: "#ffffff",
                 }}
               />
               <button
                 onClick={send}
                 disabled={!query.trim()}
                 style={{
-                  width: 84,              // 👈 fixed width (same visual size)
-                  height: 84,
-                  borderRadius: 10,
+                  width: 108,
+                  height: inputHeight,
+                  boxSizing: "border-box",
+                  alignSelf: "stretch",
+                  borderRadius: 15,
                   border: "none",
-                  background: query.trim() ? "#2563eb" : "#cbd5e1",
+                  background: query.trim() ? THEME.accent : "#b8c4d3",
                   cursor: query.trim() ? "pointer" : "not-allowed",
 
                   display: "flex",
@@ -781,8 +801,8 @@ const [step, setStep] = useState(0);
                 }}
               >
                 <svg
-                width="26"
-                height="26"
+                width="39"
+                height="39"
                 viewBox="0 0 24 24"
                 fill="white"
                 style={{
@@ -802,5 +822,7 @@ const [step, setStep] = useState(0);
     </>
   );
 }
+
+
 
 
