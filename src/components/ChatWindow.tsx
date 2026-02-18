@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "../types/chat";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { formatCell } from "../utils/format";
+import "../styles/c1copilot.css";
 
 const COLUMN_WIDTHS: Record<string, number> = {
   Id: 220,
@@ -28,8 +29,8 @@ const THEME = {
   assistantBubble: "#e5e7eb",
 };
 
-const INPUT_MIN_HEIGHT = 66;
-const INPUT_MAX_HEIGHT = 240;
+const INPUT_MIN_HEIGHT = 20;
+const INPUT_MAX_HEIGHT = 20;
 
 type Props = {
   chatHistory: ChatMessage[];
@@ -39,8 +40,8 @@ type Props = {
   onExportWord: (messageIndex: number) => void;
   onExportExcel: (messageIndex: number) => void;
   onExportChartPNG: (messageIndex: number) => void;
-  onOpen: () => void;   
-  onClose: () => void;  
+  onOpen: () => void;
+  onClose: () => void;
 };
 
 export default function ChatWindow({
@@ -55,13 +56,16 @@ export default function ChatWindow({
   onExportChartPNG,
 }: Props) {
   const [query, setQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const messages = ["Fetching inventory records", "Analyzing data", "Preparing response"];
+  const messages = ["Preparing response.", "Preparing response..", "Preparing response..."];
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    onOpen();
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,14 +73,11 @@ export default function ChatWindow({
 
   useEffect(() => {
     if (!loading) return;
-
     const i = setInterval(() => {
       setStep((s) => (s + 1) % messages.length);
     }, 1500);
-
     return () => clearInterval(i);
   }, [loading]);
-
 
   const send = () => {
     if (!query.trim()) return;
@@ -98,192 +99,217 @@ export default function ChatWindow({
   };
 
   return (
-    <>
-     <style>
-      {`
-        @keyframes skeleton {
-          0% { background-position: 100% 0; }
-          100% { background-position: 0 0; }
-        }
-      `}
-    </style>
-      {/* FLOATING OPEN BUTTON */}
-      {!isOpen && (
-        <button
-          onClick={() => {setIsOpen(true);
-            onOpen();}
-          }
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 9999,
-            borderRadius: 999,
-            background: THEME.accent,
-            color: "#fff",
-            border: "none",
-            padding: "12px 20px",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-            boxShadow: "0 12px 30px rgba(47,85,151,0.28)",
-          }}
-        >
-          Ask IA
-        </button>
-      )}
+    <div className="copilot-shell">
+      {/* HEADER */}
+      <div className="copilot-header">
+        <div className="copilot-title">
+          {/* <img
+            src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
+            alt="logo"
+            style={{ width: 28, height: 28 }}
+          /> */}
+          <div className="sparkle">✨</div>
+          <div className="copilot-title-text">
+            <span>Smart Inventory Assistant</span>
+            <span>AI-powered insights</span>
+          </div>
+        </div>
+      </div>
 
-      {/* CHAT WINDOW */}
-      {isOpen && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 9999,
-            width: 960,
-            maxWidth: "95vw",
-            height: "calc(100vh - 48px)",
-            background: THEME.panel,
-            borderRadius: 24,
-            boxShadow: "0 18px 45px rgba(0,0,0,0.18)",
-            border: `1px solid ${THEME.border}`,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {/* HEADER */}
-          <header
-            style={{
-              padding: "18px 24px",
-              borderBottom: `1px solid ${THEME.border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              background: THEME.panel,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 700, color: THEME.accent }}>
-              Smart Inventory Assistant
-            </div>
-            <button
-  onClick={() => {
-    setIsOpen(false);
-    onClose();
-  }}
-  style={{
-    border: "none",
-    background: "transparent",
-    fontSize: 20,
-    cursor: "pointer",
-    color: THEME.accent,
-  }}
->
-  ×
-</button>
-          </header>
-
-          {/* INNER PANEL */}
-          <section
-            style={{
-              flex: 1,
-              margin: 16,
-              borderRadius: 16,
-              border: `1px solid ${THEME.border}`,
-              background: "#fafafa",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-            }}
-          >
-            {/* CHAT BODY */}
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "16px 24px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                background: THEME.bg,
-              }}
-            >
-              {chatHistory.map((msg, i) => (
+      <div className="copilot-main">
+        <div className="copilot-chat">
+          {/* MESSAGES */}
+          <div className="copilot-messages">
+            {chatHistory.map((msg, i) => (
+              <div
+                key={i}
+                className={`copilot-message-row ${msg.role === "user" ? "user" : ""
+                  }`}
+              >
                 <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent:
-                      msg.role === "user" ? "flex-end" : "flex-start",
-                  }}
+                  className={`copilot-avatar ${msg.role === "user" ? "user" : "assistant"
+                    }`}
                 >
-                  <div
-                    style={{
-                      maxWidth: "100%",
-                      padding: "12px 14px",
-                      borderRadius: 14,
-                      background:
-                        msg.role === "user" ? THEME.userBubble : THEME.assistantBubble,
-                      border: `1px solid ${THEME.border}`,
-                      fontSize: 13,
-                      color: THEME.text,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        marginBottom: 6,
-                        color: THEME.accent,
-                      }}
-                    >
-                      {msg.role === "user" ? "You" : "AI"}
-                    </div>
+                  {msg.role === "user" ? "You" : "AI"}
+                </div>
 
-                    {/* ================= DATABASE MODE ================= */}
-                    {msg.mode === "database" && msg.data && (
+                <div
+                  className={`copilot-bubble ${msg.role === "user" ? "user" : "assistant"
+                    }`}
+                >
+                  {/* ================= DATABASE MODE ================= */}
+                  {msg.mode === "database" && msg.data && (
+                    <div style={{ marginTop: 8 }}>
+
                       <div
                         style={{
-                          marginTop: 8,
-                          padding: 12,
-                          borderRadius: 12,
-                          background: THEME.accentSoft,
+                          fontWeight: 700,
+                          marginBottom: 8,
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 8,
+                          justifyContent: "space-between"
+                        }}
+                      >
+                        <span>
+                          Found {msg.data.count} records.{" "}
+                          {msg.data.count > 5 &&
+                            "Only 5 showing here. To see full results, please export to Excel."}
+                        </span>
+
+                        <button
+                          onClick={() =>
+                            onExportExcel(msg.messageIndex!)
+                          }
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #9EC5CA",
+                            background: "#ffffff",
+                            color: "#2F5597",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          📊 Excel
+                        </button>
+                      </div>
+
+                      {/* <div style={{ marginTop: 8, overflowX: "auto" }}>
+                        <table style={{ width: "100%",  fontSize: 12 }}>
+                          <thead>
+                            <tr>
+                              {msg.data.columns.map((c) => (
+                                <th key={c}>{c}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {msg.data.rows.map((r, idx) => (
+                              <tr key={idx}>
+                                {msg.data.columns.map((c) => (
+                                  <td key={c}>{formatCell(r[c], c)}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div> */}
+
+                      <div
+                        style={{
+                          maxHeight: 260,
+                          overflow: "auto",
+                          background: "#ffffff",
+                          borderRadius: 8,
                           border: `1px solid ${THEME.border}`,
                         }}
                       >
-                        <div
+                        <table
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 10,
+                            width: "100%",
+                            minWidth: 1200,
+                            tableLayout: "fixed",
+                            borderCollapse: "collapse",
+                            fontSize: 11,
                           }}
                         >
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>
-                            Found {msg.data.count} records. Only 5 showing here. to see full results, please export to Excel.
-                          </div>
+                          <thead>
+                            <tr>
+                              {msg.data.columns.map((c) => (
+                                <th
+                                  key={c}
+                                  style={{
+                                    padding: "8px 10px",
+                                    borderBottom: "1px solid #e5e7eb",
+                                    background: "#f8fafc",
+                                    fontWeight: 700,
+                                    position: "sticky",
+                                    top: 0,
+                                    textAlign: "left",
+                                    whiteSpace: "nowrap",
+                                    width:
+                                      COLUMN_WIDTHS[c] ||
+                                      COLUMN_WIDTHS.default,
+                                  }}
+                                >
+                                  {c}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {msg.data.rows.map((r, idx) => (
+                              <tr key={idx}>
+                                {msg.data.columns.map((c) => (
+                                  <td
+                                    key={c}
+                                    title={String(r[c] ?? "")}
+                                    style={{
+                                      padding: "8px 10px",
+                                      borderBottom: "1px solid #f1f5f9",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      width:
+                                        COLUMN_WIDTHS[c] ||
+                                        COLUMN_WIDTHS.default,
+                                    }}
+                                  >
+                                    {formatCell(r[c], c)}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
 
-                          {msg.messageIndex !== undefined && (
-                            <button
-                              onClick={() => onExportExcel(msg.messageIndex!)}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                padding: "6px 14px",
-                                borderRadius: 8,
-                                border: `1px solid ${THEME.border}`,
-                                background: "#ffffff",
-                                color: THEME.accent,
-                                fontSize: 13,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              📊 Excel
-                            </button>
-                          )}
+
+                    </div>
+                  )}
+
+                  {/* ================= HYBRID MODE ================= */}
+                  {msg.mode === "hybrid" && msg.hybridData && (
+                    <>
+                      {/* DATABASE TABLE */}
+                      <div style={{ marginTop: 8 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            marginBottom: 8,
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 8,
+                            justifyContent: "space-between"
+                          }}
+                        >
+                          <span>
+                            Found {msg.hybridData.database.count} records.{" "}
+                            {msg.hybridData.database.count > 5 &&
+                              "Only 5 showing here. To see full results, please export to Excel."}
+                          </span>
+
+                          <button
+                            onClick={() =>
+                              onExportExcel(msg.hybridData!.database.index)
+                            }
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #9EC5CA",
+                              background: "#ffffff",
+                              color: "#2F5597",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            📊 Excel
+                          </button>
                         </div>
 
                         <div
@@ -306,7 +332,7 @@ export default function ChatWindow({
                           >
                             <thead>
                               <tr>
-                                {msg.data.columns.map((c) => (
+                                {msg.hybridData.database.columns.map((c) => (
                                   <th
                                     key={c}
                                     style={{
@@ -329,9 +355,9 @@ export default function ChatWindow({
                               </tr>
                             </thead>
                             <tbody>
-                              {msg.data.rows.map((r, idx) => (
+                              {msg.hybridData.database.rows.map((r, idx) => (
                                 <tr key={idx}>
-                                  {msg.data.columns.map((c) => (
+                                  {msg.hybridData.database.columns.map((c) => (
                                     <td
                                       key={c}
                                       title={String(r[c] ?? "")}
@@ -354,230 +380,67 @@ export default function ChatWindow({
                             </tbody>
                           </table>
                         </div>
+
+
                       </div>
-                    )}
 
-                    {/* ================= HYBRID MODE ================= */}
-                    {msg.mode === "hybrid" && msg.hybridData && (
-                      <>
-                        {/* Database Table */}
-                        <div
-                          style={{
-                            marginTop: 8,
-                            padding: 12,
-                            borderRadius: 12,
-                          background: THEME.accentSoft,
-                          border: `1px solid ${THEME.border}`,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: 10,
-                            }}
-                          >
-                            <div style={{ fontWeight: 700, fontSize: 13 }}>
-                               Found {msg.hybridData.database.count} records. Only 5 showing here. to see full results, please export to Excel
+
+
+
+                      {/* AI ANALYSIS TEXT */}
+                      {msg.hybridData.ai.analysisText && (
+                        <div style={{ marginTop: 12 }}>
+                          {msg.hybridData.ai.analysisIndex !== undefined && (
+                            <div style={{ marginBottom: 8, display: "flex", gap: 8 }}>
+                              <button
+                                className="copilot-send-btn"
+                                onClick={() =>
+                                  onExportPDF(msg.hybridData!.ai.analysisIndex!)
+                                }
+                              >
+                                📄 PDF
+                              </button>
+
+                              <button
+                                className="copilot-send-btn"
+                                onClick={() =>
+                                  onExportWord(msg.hybridData!.ai.analysisIndex!)
+                                }
+                              >
+                                📝 Word
+                              </button>
                             </div>
+                          )}
 
-                            <button
-                              onClick={() => onExportExcel(msg.hybridData!.database.index)}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                padding: "6px 14px",
-                                borderRadius: 8,
-                                border: `1px solid ${THEME.border}`,
-                                background: "#ffffff",
-                                color: THEME.accent,
-                                fontSize: 13,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              📊 Excel
-                            </button>
-                          </div>
-
-                          <div
-                            style={{
-                              maxHeight: 260,
-                              overflow: "auto",
-                              background: "#ffffff",
-                              borderRadius: 8,
-                              border: `1px solid ${THEME.border}`,
-                            }}
-                          >
-                            <table
-                              style={{
-                                width: "100%",
-                                minWidth: 1200,
-                                tableLayout: "fixed",
-                                borderCollapse: "collapse",
-                                fontSize: 11,
-                              }}
-                            >
-                              <thead>
-                                <tr>
-                                  {msg.hybridData.database.columns.map((c) => (
-                                    <th
-                                      key={c}
-                                      style={{
-                                        padding: "8px 10px",
-                                        borderBottom: "1px solid #e5e7eb",
-                                        background: "#f8fafc",
-                                        fontWeight: 700,
-                                        position: "sticky",
-                                        top: 0,
-                                        textAlign: "left",
-                                        whiteSpace: "nowrap",
-                                        width:
-                                          COLUMN_WIDTHS[c] ||
-                                          COLUMN_WIDTHS.default,
-                                      }}
-                                    >
-                                      {c}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {msg.hybridData.database.rows.map((r, idx) => (
-                                  <tr key={idx}>
-                                    {msg.hybridData.database.columns.map((c) => (
-                                      <td
-                                        key={c}
-                                        title={String(r[c] ?? "")}
-                                        style={{
-                                          padding: "8px 10px",
-                                          borderBottom: "1px solid #f1f5f9",
-                                          whiteSpace: "nowrap",
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          width:
-                                            COLUMN_WIDTHS[c] ||
-                                            COLUMN_WIDTHS.default,
-                                        }}
-                                      >
-                                        {formatCell(r[c], c)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
+                          <MarkdownRenderer
+                            content={msg.hybridData.ai.analysisText}
+                          />
                         </div>
+                      )}
 
-                        {/* AI Analysis Text */}
-                        {msg.hybridData.ai.analysisText && (
-                          <div
-                            style={{
-                              marginTop: 8,
-                              padding: 0,
-                              borderRadius: 0,
-                              background: "transparent",
-                              border: "none",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 8,
-                              }}
-                            >
-                              <div />
-
-                              {msg.hybridData.ai.analysisIndex !== undefined && (
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button
-                                    onClick={() => onExportPDF(msg.hybridData!.ai.analysisIndex!)}
-                                    style={{
-                                      padding: "6px 14px",
-                                      borderRadius: 8,
-                                      border: `1px solid ${THEME.border}`,
-                                      background: "#ffffff",
-                                      color: THEME.accent,
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    📄 PDF
-                                  </button>
-
-                                  <button
-                                    onClick={() => onExportWord(msg.hybridData!.ai.analysisIndex!)}
-                                    style={{
-                                      padding: "6px 14px",
-                                      borderRadius: 8,
-                                      border: `1px solid ${THEME.border}`,
-                                      background: "#ffffff",
-                                      color: THEME.accent,
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    📝 Word
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            <MarkdownRenderer content={msg.hybridData.ai.analysisText} />
-                          </div>
-                        )}
-
-                        {/* AI Chart */}
-                        {msg.hybridData.ai.chart && msg.hybridData.ai.chart.trim().startsWith("<svg") && (
-                          <div
-                            style={{
-                              marginTop: 12,
-                              padding: 12,
-                              borderRadius: 12,
-                              background: THEME.accentSoft,
-                              border: `1px solid ${THEME.border}`,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 8,
-                              }}
-                            >
-                              <div style={{ fontSize: 13, fontWeight: 700, color: THEME.accent }}>
-                                Chart Visualization
-                              </div>
-
-                              {msg.hybridData.ai.chartIndex !== undefined && (
+                      {/* AI SVG CHART */}
+                      {msg.hybridData.ai.chart &&
+                        msg.hybridData.ai.chart.trim().startsWith("<svg") && (
+                          <div style={{ marginTop: 12 }}>
+                            {msg.hybridData.ai.chartIndex !== undefined && (
+                              <div style={{ marginBottom: 8 }}>
                                 <button
-                                  onClick={() => onExportChartPNG(msg.hybridData!.ai.chartIndex!)}
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: 6,
-                                    border: `1px solid ${THEME.border}`,
-                                    background: "#ffffff",
-                                    color: THEME.accent,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
+                                  className="copilot-send-btn"
+                                  onClick={() =>
+                                    onExportChartPNG(
+                                      msg.hybridData!.ai.chartIndex!
+                                    )
+                                  }
                                 >
                                   ⬇️ PNG
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
 
                             <div
-                              dangerouslySetInnerHTML={{ __html: msg.hybridData.ai.chart }}
+                              dangerouslySetInnerHTML={{
+                                __html: msg.hybridData.ai.chart,
+                              }}
                               style={{
                                 background: "#fff",
                                 borderRadius: 8,
@@ -587,179 +450,93 @@ export default function ChatWindow({
                             />
                           </div>
                         )}
-                      </>
+                    </>
+                  )}
+
+                  {/* ================= STANDALONE SVG MODE ================= */}
+                  {msg.content &&
+                    msg.mode !== "database" &&
+                    msg.mode !== "hybrid" &&
+                    msg.content.trim().startsWith("<svg") && (
+                      <div style={{ marginTop: 8 }}>
+                        {msg.messageIndex !== undefined && (
+                          <div style={{ marginBottom: 8 }}>
+                            <button
+                              className="copilot-send-btn"
+                              onClick={() => onExportChartPNG(msg.messageIndex!)}
+                            >
+                              ⬇️ PNG
+                            </button>
+                          </div>
+                        )}
+
+                        <div
+                          dangerouslySetInnerHTML={{ __html: msg.content }}
+                          style={{
+                            background: "#fff",
+                            borderRadius: 8,
+                            padding: 8,
+                            overflowX: "auto",
+                          }}
+                        />
+                      </div>
                     )}
 
-                    {/* ================= TEXT CONTENT (Non-SVG) ================= */}
-                    {msg.content &&
-                      msg.mode !== "database" &&
-                      msg.mode !== "hybrid" &&
-                      !msg.content.trim().startsWith("<svg") && (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            padding: 0,
-                            borderRadius: 0,
-                            background: "transparent",
-                            border: "none",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <div />
+                  {/* ================= NORMAL TEXT ================= */}
+                  {msg.content &&
+                    msg.mode !== "database" &&
+                    msg.mode !== "hybrid" &&
+                    !msg.content.trim().startsWith("<svg") && (
+                      <div className="copilot-message-text">
+                        {msg.messageIndex !== undefined && (
+                          <div style={{ marginTop: 20, marginBottom: 8, display: "flex", gap: 8 }}>
+                            <button
+                              className="copilot-send-btn"
+                              onClick={() =>
+                                onExportPDF(msg.messageIndex!)
+                              }
+                            >
+                              📄 PDF
+                            </button>
 
-                            {msg.messageIndex !== undefined && (
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button
-                                  onClick={() => onExportPDF(msg.messageIndex!)}
-                                  style={{
-                                    padding: "6px 14px",
-                                    borderRadius: 8,
-                                    border: `1px solid ${THEME.border}`,
-                                    background: "#ffffff",
-                                    color: THEME.accent,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  📄 PDF
-                                </button>
-
-                                <button
-                                  onClick={() => onExportWord(msg.messageIndex!)}
-                                  style={{
-                                    padding: "6px 14px",
-                                    borderRadius: 8,
-                                    border: `1px solid ${THEME.border}`,
-                                    background: "#ffffff",
-                                    color: THEME.accent,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  📝 Word
-                                </button>
-                              </div>
-                            )}
+                            <button
+                              className="copilot-send-btn"
+                              onClick={() =>
+                                onExportWord(msg.messageIndex!)
+                              }
+                            >
+                              📝 Word
+                            </button>
                           </div>
+                        )}
+                        <MarkdownRenderer content={msg.content} />
+                      </div>
+                    )}
 
-                          <MarkdownRenderer content={msg.content} />
-                        </div>
-                      )}
-
-                    {/* ================= SVG CHART (Standalone) ================= */}
-                    {msg.content &&
-                      msg.mode !== "database" &&
-                      msg.mode !== "hybrid" &&
-                      msg.content.trim().startsWith("<svg") && (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            padding: 12,
-                            borderRadius: 12,
-                            background: THEME.accentSoft,
-                            border: `1px solid ${THEME.border}`,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <div style={{ fontSize: 13, fontWeight: 700, color: THEME.accent }}>
-                              Chart Visualization
-                            </div>
-
-                            {msg.messageIndex !== undefined && (
-                              <button
-                                onClick={() => onExportChartPNG(msg.messageIndex!)}
-                                style={{
-                                  padding: "4px 8px",
-                                  borderRadius: 6,
-                                  border: `1px solid ${THEME.border}`,
-                                  background: "#ffffff",
-                                  color: THEME.accent,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                ⬇️ PNG
-                              </button>
-                            )}
-                          </div>
-
-                          <div
-                            dangerouslySetInnerHTML={{ __html: msg.content }}
-                            style={{
-                              background: "#fff",
-                              borderRadius: 8,
-                              padding: 8,
-                              overflowX: "auto",
-                            }}
-                          />
-                        </div>
-                      )}
-                  </div>
                 </div>
-              ))}
+              </div>
+            ))}
 
-              {loading && (
-                <div
-                  style={{
-                    width: 260,
-                    height: 38,
-                    borderRadius: 14,
-                    background:
-                      "linear-gradient(90deg, #e8ebef 25%, #d9e3f2 37%, #edf2f8 63%)",
-                    backgroundSize: "400% 100%",
-                    animation: "skeleton 1.4s ease infinite",
-                    alignSelf: "flex-start",
-                    display: "flex",
-                    alignItems: "center",
-                    paddingLeft: 14,
-                    color: THEME.accent,
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  {messages[step]}…
+            {loading && (
+              <div className="copilot-message-row">
+                <div className="copilot-avatar assistant">AI</div>
+                <div className="copilot-bubble assistant" style={{ maxWidth: "900 px" }}>
+                  {messages[step]}
                 </div>
-              )}
+              </div>
+            )}
 
+            <div ref={chatEndRef} />
+          </div>
 
-
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* INPUT */}
-            <div
-              style={{
-                padding: 16,
-                borderTop: `1px solid ${THEME.border}`,
-                display: "flex",
-                gap: 10,
-                background: THEME.panel,
-                alignItems: "stretch",
-              }}
-            >
+          {/* INPUT */}
+          <div className="copilot-input-bar">
+            <div className="copilot-input-inner">
               <textarea
                 ref={inputRef}
                 value={query}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Ask anything about inventory..."
-                rows={1}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -767,62 +544,36 @@ export default function ChatWindow({
                   }
                 }}
                 style={{
-                  flex: 1,
-                  boxSizing: "border-box",
-                  resize: "none",
-                  padding: "18px 21px",
-                  borderRadius: 15,
-                  border: `1px solid ${THEME.border}`,
-                  fontSize: 21,
                   minHeight: INPUT_MIN_HEIGHT,
                   height: inputHeight,
                   maxHeight: INPUT_MAX_HEIGHT,
-                  outline: "none",
-                  color: THEME.text,
-                  background: "#ffffff",
                 }}
               />
+
               <button
+                className="copilot-send-btn"
                 onClick={send}
                 disabled={!query.trim()}
-                style={{
-                  width: 108,
-                  height: inputHeight,
-                  boxSizing: "border-box",
-                  alignSelf: "stretch",
-                  borderRadius: 15,
-                  border: "none",
-                  background: query.trim() ? THEME.accent : "#b8c4d3",
-                  cursor: query.trim() ? "pointer" : "not-allowed",
-
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
               >
-                <svg
-                width="39"
-                height="39"
-                viewBox="0 0 24 24"
-                fill="white"
-                style={{
-                  transform: "rotate(180deg)", // ✅ fixes direction
-                  opacity: query.trim() ? 1 : 0.6,
-                }}
-              >
-                <path d="M3 12L21 3L14 12L21 21L3 12Z" />
-              </svg>
-
+                Send
               </button>
-
             </div>
-          </section>
+          </div>
         </div>
-      )}
-    </>
+
+        {/* SIDEBAR */}
+        <div className="copilot-sidebar">
+          {/* <div className="copilot-sidebar-section">
+            <h4>Capabilities</h4>
+            <ul>
+              <li>Inventory lookup</li>
+              <li>Data analysis</li>
+              <li>Export reports</li>
+              <li>Chart visualization</li>
+            </ul>
+          </div> */}
+        </div>
+      </div>
+    </div>
   );
 }
-
-
-
-

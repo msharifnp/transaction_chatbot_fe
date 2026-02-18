@@ -1,0 +1,580 @@
+:root {
+    --bg: #f3f4f6;
+    /* Light neutral background */
+    --bg-elevated: #ffffff;
+    /* White cards/panels */
+    --border-subtle: #9EC5CA;
+    /* Soft gray borders */
+    --accent: #2F5597;
+    /* Copilot blue */
+    --accent-soft: rgba(59, 130, 246, 0.12);
+    --text-primary: #1f2937;
+    /* Dark gray text */
+    --text-secondary: #2F5597;
+    /* Muted gray text */
+    --user-bubble: #D7EBEE;
+    /* Blue user bubble */
+    --assistant-bubble: #e5e7eb;
+    /* Light gray assistant bubble */
+    --user-name: #5A9BA4;
+    --font-family: "Segoe UI ", "Segoe WP ", device-segoe, "Segoe UI", "Segoe WP", Segoe, Tahoma, Helvetica, Arial, sans-serif;
+    --mic-background: "#f3f3f5";
+    --mic_background-hover: "#e7e7ea";
+    --cite-link: 1px solid #bfbfbf;
+}
+
+
+body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: "Segoe UI ", "Segoe WP ", device-segoe, "Segoe UI", "Segoe WP", Segoe, Tahoma, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.copilot-shell {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 70px);
+    /*  max-width: 960px; */
+    margin: 20px;
+    border-radius: 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.copilot-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: #ffffffcc;
+
+}
+
+.copilot-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sparkle {
+    font-size: 32px;
+    display: inline-block;
+    filter: brightness(0) saturate(100%) invert(19%) sepia(12%) saturate(2094%) hue-rotate(191deg) brightness(92%) contrast(88%);
+    text-shadow: 0 0 8px rgba(59, 130, 246, 0.9);
+}
+
+.copilot-logo {
+    position: relative;
+    width: 28px;
+    height: 28px;
+}
+
+
+.copilot-logo::after {
+    content: "";
+    position: absolute;
+    background: #2F5597;
+    transform: rotate(45deg);
+    clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+    filter: drop-shadow(0 0 6px rgba(47, 85, 151, 0.45));
+}
+
+/* ✅ Small star — LEFT */
+.copilot-logo::before {
+    width: 14px;
+    height: 14px;
+    top: 6px;
+    left: -10px;
+}
+
+/* ✅ Big star — RIGHT */
+.copilot-logo::after {
+    width: 25px;
+    height: 25px;
+    top: -15px;
+    right: 2px;
+}
+
+
+.copilot-title-text {
+    display: flex;
+    flex-direction: column;
+    color: #1f2937;
+}
+
+.copilot-title-text span:first-child {
+    font-weight: 600;
+}
+
+.copilot-title-text span:last-child {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.copilot-provider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.copilot-provider select {
+    background: #ffffff;
+    color: var(--text-primary);
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    padding: 4px 10px;
+    font-size: 0.85rem;
+}
+
+.copilot-main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.copilot-chat {
+    flex: 2.5;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-subtle);
+    background: #fafafa;
+}
+
+.copilot-sidebar {
+    flex: 0.5;
+    /* changed from 1.5 */
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: #ffffff;
+}
+
+.copilot-messages {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.copilot-message-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 80%;
+}
+
+.copilot-message-row.user {
+    margin-left: auto;
+    flex-direction: row-reverse;
+}
+
+.copilot-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.copilot-avatar.assistant {
+    background: var(--accent);
+    color: black;
+}
+
+.copilot-avatar.user {
+    background: var(--user-name);
+    color: black;
+}
+
+
+
+.copilot-bubble {
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 1px solid transparent;
+    color: #5a5a5a;
+    /*  white-space: pre-line; */
+}
+
+.copilot-bubble.assistant {
+    background: var(--assistant-bubble);
+    border-color: var(--border-subtle);
+    max-width: 900px;
+}
+
+.copilot-bubble.user {
+    background: var(--user-bubble);
+    color: var(--accent);
+}
+
+.copilot-input-bar {
+    border-top: 1px solid var(--border-subtle);
+    padding: 10px 12px;
+    background: #ffffffcc;
+
+}
+
+.copilot-input-inner {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    padding: 6px 10px;
+}
+
+.copilot-input-inner textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    resize: none;
+    font-size: 0.9rem;
+    max-height: 120px;
+    min-height: auto !important;
+    outline: none;
+    font-family: var(--font-family);
+}
+
+.copilot-send-btn {
+    border-radius: 999px;
+    border: none;
+    padding: 6px 14px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    /* outline: 1px solid var(--user-name); your outline color */
+}
+
+.copilot-send-btn:hover {
+    background: var(--accent);
+}
+
+.copilot-sidebar-section {
+    margin-bottom: 14px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    background: #ffffff;
+}
+
+.copilot-sidebar-section h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.copilot-sidebar-section ul {
+    padding-left: 18px;
+    margin: 0;
+}
+
+.copilot-sidebar-section li {
+    margin-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+    .copilot-shell {
+        height: calc(100vh - 70px);
+        margin: 15px;
+    }
+
+    .copilot-main {
+        flex-direction: column;
+    }
+
+    .copilot-chat {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .copilot-sidebar {
+        display: none;
+    }
+}
+
+#currentProvider {
+    font-weight: bold;
+}
+
+.copilot-clear-icon-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+
+}
+
+.copilot-icon-trash {
+    width: 24px;
+    height: 24px;
+    background-color: var(--accent);
+    -webkit-mask: url('../Areas/Common/Content/Images/delete.png') no-repeat center;
+    mask: url('../Areas/Common/Content/Images/delete.png') no-repeat center;
+}
+
+.copilot-clear-icon-btn:hover {
+    color: var(--accent);
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #5A9BA4;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    animation: spin 1s linear infinite;
+    margin: 10px auto;
+}
+
+.hidden {
+    display: none;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.copilot-timestamp {
+    font-size: 9px;
+    color: var(--accent);
+    margin-bottom: 4px;
+    font-weight: 650;
+}
+
+.copilot-input-textarea::placeholder {
+    font-style: italic;
+    color: var(--accent);
+    font-family: var(--font-family);
+}
+
+.copilot-bubble {
+    position: relative;
+    padding: 6px 6px;
+    border-radius: 12px;
+}
+
+.copilot-bubble-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.copilot-timestamp {
+    font-size: 10px;
+    color: var(--accent);
+}
+
+.copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    opacity: 0.85;
+    transition: opacity 0.2s ease;
+}
+
+.copy-icon {
+    width: 16px;
+    height: 16px;
+    fill: var(--accent);
+    transition: fill 0.2s ease;
+}
+
+.copilot-message-text {
+    white-space: pre-line;
+    margin-top: -15px;
+}
+
+.copilot-link {
+    color: var(--accent);
+}
+
+strong {
+    color: var(--accent);
+}
+
+.copilot-mic-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.copilot-mic-btn:hover {
+    background: var(--mic_background-hover);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.copilot-mic-icon {
+    width: 20px;
+    height: 20px;
+    fill: var(--accent);
+    transition: fill 0.2s ease;
+}
+
+.copilot-mic-btn:hover .copilot-mic-icon {
+    fill: var(--accent);
+}
+
+.copilot-mic-btn.listening {
+    background-color: lightblue;
+    color: white;
+}
+
+/*******************/
+/* citations */
+/* Inline (n) markers */
+.copilot-cite {
+    font-size: 0.85em;
+    color: #5a5a5a;
+    cursor: pointer;
+    margin-left: 3px;
+}
+
+.copilot-cite:hover {
+    text-decoration: underline;
+}
+
+/* Global panel container */
+.copilot-citations-container {
+    padding: 8px 0 0;
+}
+
+/* Divider stays the same */
+.copilot-cite-divider {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 12px 0 8px;
+}
+
+/* Make the list horizontal + wrap */
+.copilot-citations {
+    font-size: 0.9em;
+    display: flex !important;
+    /* force horizontal layout */
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    /* wrap to next line when needed */
+    align-items: center;
+    gap: 8px;
+    /* space between pills */
+    border-top: 1px solid var(--border-subtle);
+    padding: 5px;
+}
+
+/* Make each item a compact pill (not a full-width row) */
+.citation-item {
+    display: inline-flex;
+    /* was flex row */
+    align-items: center;
+    gap: 1px;
+    margin: 0;
+    /* remove vertical margins that cause stacked spacing */
+    padding: 4px 8px;
+    border: 1px solid #bfbfbf;
+    border-radius: 8px;
+    background: #f6f7f9;
+    color: var(--accent);
+    flex: 0 0 auto;
+    /* do not stretch */
+    white-space: nowrap;
+    /* keep pill content on a single line */
+    font-weight: 600;
+    border: 1px solid var(--border-subtle);
+}
+
+/* Number badge inside pill */
+.cite-number {
+    width: 20px;
+    height: 20px;
+    font-size: 0.75em;
+    border: 1px solid #bfbfbf;
+    border-radius: 4px;
+    color: #333;
+    background: #f9f9f9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 20px;
+}
+
+/* Clickable label inside the pill */
+.citation-link {
+    display: inline-block;
+    text-decoration: none !important;
+    /* kill any inherited underline */
+    max-width: 240px;
+    /* adjust per layout width */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    color: #0f6cbd;
+    padding: 0;
+    /* pill padding is on .citation-item */
+    border: 0;
+    /* remove the thin border you had on link */
+    border-radius: 0;
+    /* let the pill carry the rounding */
+}
+
+.citation-link:hover {
+    text-decoration: underline;
+}
+
+/* Optional hover/focus states for the pill */
+.citation-item:hover {
+    background: #eef2f7;
+    border-color: #c3cad2;
+}
+
+.citation-item:focus-within {
+    outline: 2px solid #2684ff;
+    outline-offset: 2px;
+}
+
+.citation-icon {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+}
