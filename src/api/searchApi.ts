@@ -27,7 +27,7 @@ export function startSession(tenantId: string) {
 
 export const endSession = (tenantId: string, sessionId: string) => {
   return axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/api/session/end`,
+    `${API_BASE}/api/session/end`,
     {},
     {
       headers: {

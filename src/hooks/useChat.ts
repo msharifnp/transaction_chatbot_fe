@@ -18,6 +18,11 @@ export function useChat(
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const clearChatHistory = useCallback(() => {
+    setChatHistory([]);
+    setErr(null);
+  }, []);
+
   const sendMessage = useCallback(
     async (query: string) => {
       if (!query.trim()) return;
@@ -28,7 +33,7 @@ export function useChat(
       const userMsg: ChatMessage = {
         role: "user",
         content: query,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleString(),
       };
 
       setChatHistory((p) => [...p, userMsg]);
@@ -78,7 +83,7 @@ export function useChat(
             {
               role: "assistant",
               content: data.response_message,
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "message",
             },
           ]);
@@ -92,7 +97,7 @@ export function useChat(
             messages.push({
               role: "assistant",
               content: data.analysis_text.text,
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "model",
               messageIndex: data.analysis_text.index,
             });
@@ -102,7 +107,7 @@ export function useChat(
             messages.push({
               role: "assistant",
               content: data.chart.svg,
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "model",
               messageIndex: data.chart.index,
             });
@@ -112,7 +117,7 @@ export function useChat(
             messages.push({
               role: "assistant",
               content: "I couldn't generate a response.",
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "model",
             });
           }
@@ -126,7 +131,7 @@ export function useChat(
             ...p,
             {
               role: "assistant",
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "database",
               messageIndex: data.index,
               data: {
@@ -144,7 +149,7 @@ export function useChat(
             ...p,
             {
               role: "assistant",
-              timestamp: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
               mode: "hybrid",
               messageIndex:
                 data.ai.analysis_text?.index ?? data.ai.chart?.index,
@@ -175,5 +180,5 @@ export function useChat(
     [tenantId, sessionIdRef, setSessionId]
   );
 
-  return { chatHistory, loading, err, sendMessage };
+  return { chatHistory, loading, err, sendMessage, clearChatHistory  };
 }

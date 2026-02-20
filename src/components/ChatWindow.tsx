@@ -42,6 +42,7 @@ type Props = {
   onExportChartPNG: (messageIndex: number) => void;
   onOpen: () => void;
   onClose: () => void;
+  onClearChatHistory: () => void;
 };
 
 export default function ChatWindow({
@@ -54,13 +55,14 @@ export default function ChatWindow({
   onExportWord,
   onExportExcel,
   onExportChartPNG,
+  onClearChatHistory
 }: Props) {
   const [query, setQuery] = useState("");
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const messages = ["Preparing response.", "Preparing response..", "Preparing response..."];
+  const messages = ["Preparing response"];
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -137,6 +139,17 @@ export default function ChatWindow({
                   className={`copilot-bubble ${msg.role === "user" ? "user" : "assistant"
                     }`}
                 >
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#2F5597",
+                      marginBottom: "6px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    {msg.timestamp}
+                  </div>
+
                   {/* ================= DATABASE MODE ================= */}
                   {msg.mode === "database" && msg.data && (
                     <div style={{ marginTop: 8 }}>
@@ -494,8 +507,8 @@ export default function ChatWindow({
             {loading && (
               <div className="copilot-message-row">
                 <div className="copilot-avatar assistant">C1</div>
-                <div className="copilot-bubble assistant" style={{ maxWidth: "900 px" }}>
-                  {messages[step]}
+                <div className="copilot-bubble assistant" style={{ maxWidth: "900px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>Preparing response</span><div className="small-loader"></div>
                 </div>
               </div>
             )}
@@ -525,6 +538,15 @@ export default function ChatWindow({
               />
 
               <button
+                className="copilot-mic-btn"
+                onClick={() => {}}
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" className="copilot-mic-icon">
+                  <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zm-5 9a1 1 0 0 0 1-1v-2h-2v2a1 1 0 0 0 1 1z"></path>
+                </svg>
+              </button>
+              <button
                 className="copilot-send-btn"
                 onClick={send}
                 disabled={!query.trim()}
@@ -533,6 +555,22 @@ export default function ChatWindow({
               </button>
             </div>
           </div>
+          <div 
+          style={{ marginLeft: "15px", cursor: "pointer" }}   
+          onClick={onClearChatHistory}
+          >
+          <svg fill="#2F5597" version="1.1" id="Capa_1"
+            width="18px" height="18px" viewBox="0 0 41.336 41.336">
+            <g>
+              <path d="M36.335,5.668h-8.167V1.5c0-0.828-0.672-1.5-1.5-1.5h-12c-0.828,0-1.5,0.672-1.5,1.5v4.168H5.001c-1.104,0-2,0.896-2,2
+                s0.896,2,2,2h2.001v29.168c0,1.381,1.119,2.5,2.5,2.5h22.332c1.381,0,2.5-1.119,2.5-2.5V9.668h2.001c1.104,0,2-0.896,2-2
+                S37.438,5.668,36.335,5.668z M14.168,35.67c0,0.828-0.672,1.5-1.5,1.5s-1.5-0.672-1.5-1.5v-21c0-0.828,0.672-1.5,1.5-1.5
+                s1.5,0.672,1.5,1.5V35.67z M22.168,35.67c0,0.828-0.672,1.5-1.5,1.5s-1.5-0.672-1.5-1.5v-21c0-0.828,0.672-1.5,1.5-1.5
+                s1.5,0.672,1.5,1.5V35.67z M25.168,5.668h-9V3h9V5.668z M30.168,35.67c0,0.828-0.672,1.5-1.5,1.5s-1.5-0.672-1.5-1.5v-21
+                c0-0.828,0.672-1.5,1.5-1.5s1.5,0.672,1.5,1.5V35.67z"/>
+            </g>
+          </svg>
+        </div>
         </div>
 
         {/* SIDEBAR */}

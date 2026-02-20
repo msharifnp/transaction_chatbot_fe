@@ -17,7 +17,7 @@ export default function App() {
   const sessionIdRef = useRef<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const { chatHistory, loading, sendMessage } = useChat(
+  const { chatHistory, loading, sendMessage, clearChatHistory } = useChat(
     tenantId,
     sessionIdRef,
     setSessionId
@@ -61,6 +61,27 @@ export default function App() {
     }
   };
 
+  const onClearChatHistory = async () => {
+    try {
+      console.log("[App] 🔄 Clearing chat + rotating session...");
+
+      // 1️⃣ End existing session
+      if (sessionIdRef.current) {
+        await endSession();
+      }
+
+      // 2️⃣ Clear local chat history
+      clearChatHistory();
+
+      // 3️⃣ Start fresh session
+      await startSession();
+
+      console.log("[App] ✅ Chat cleared and new session started");
+    } catch (err) {
+      console.error("[App] ❌ Failed to clear chat properly", err);
+    }
+  };
+
   return (
     <ChatWindow
       chatHistory={chatHistory}
@@ -76,6 +97,7 @@ export default function App() {
       onExportChartPNG={(index) =>
         exportChartPNG(tenantId, sessionIdRef.current, index)
       }
+      onClearChatHistory={onClearChatHistory}
     />
   );
 }
