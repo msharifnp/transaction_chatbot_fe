@@ -110,7 +110,7 @@ export default function ChatWindow({
           /> */}
           <div className="sparkle">✨</div>
           <div className="copilot-title-text">
-            <span>Smart Inventory Assistant</span>
+            <span>Inventory Assistant</span>
             <span>AI-powered insights</span>
           </div>
         </div>
@@ -130,7 +130,7 @@ export default function ChatWindow({
                   className={`copilot-avatar ${msg.role === "user" ? "user" : "assistant"
                     }`}
                 >
-                  {msg.role === "user" ? "You" : "AI"}
+                  {msg.role === "user" ? "SYS" : "C1"}
                 </div>
 
                 <div
@@ -152,11 +152,7 @@ export default function ChatWindow({
                           justifyContent: "space-between"
                         }}
                       >
-                        <span>
-                          Found {msg.data.count} records.{" "}
-                          {msg.data.count > 5 &&
-                            "Only 5 showing here. To see full results, please export to Excel."}
-                        </span>
+                        <span> {msg.data.count > 5 ? "5" : msg.data.count}{`/${msg.data.count} record(s) are shown. Click Excel icon to export all rows.`}</span>
 
                         <button
                           onClick={() =>
@@ -176,27 +172,6 @@ export default function ChatWindow({
                           📊 Excel
                         </button>
                       </div>
-
-                      {/* <div style={{ marginTop: 8, overflowX: "auto" }}>
-                        <table style={{ width: "100%",  fontSize: 12 }}>
-                          <thead>
-                            <tr>
-                              {msg.data.columns.map((c) => (
-                                <th key={c}>{c}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {msg.data.rows.map((r, idx) => (
-                              <tr key={idx}>
-                                {msg.data.columns.map((c) => (
-                                  <td key={c}>{formatCell(r[c], c)}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div> */}
 
                       <div
                         style={{
@@ -288,10 +263,9 @@ export default function ChatWindow({
                           }}
                         >
                           <span>
-                            Found {msg.hybridData.database.count} records.{" "}
-                            {msg.hybridData.database.count > 5 &&
-                              "Only 5 showing here. To see full results, please export to Excel."}
+                              {msg.hybridData.database.count > 5 ? "5" : msg.hybridData.database.count} {`/${msg.hybridData.database.count} record(s) are shown. Click Excel icon to export all rows.`}
                           </span>
+
 
                           <button
                             onClick={() =>
@@ -391,7 +365,7 @@ export default function ChatWindow({
                       {msg.hybridData.ai.analysisText && (
                         <div style={{ marginTop: 12 }}>
                           {msg.hybridData.ai.analysisIndex !== undefined && (
-                            <div style={{ marginBottom: 8, display: "flex", gap: 8 }}>
+                            <div style={{ marginBottom: 8, display: "flex", gap: 8, justifyContent: "flex-end"}}>
                               <button
                                 className="copilot-send-btn"
                                 onClick={() =>
@@ -489,7 +463,7 @@ export default function ChatWindow({
                     !msg.content.trim().startsWith("<svg") && (
                       <div className="copilot-message-text">
                         {msg.messageIndex !== undefined && (
-                          <div style={{ marginTop: 20, marginBottom: 8, display: "flex", gap: 8 }}>
+                          <div style={{ marginTop: 20, marginBottom: 8, display: "flex", gap: 8, justifyContent: "flex-end" }}>
                             <button
                               className="copilot-send-btn"
                               onClick={() =>
@@ -519,7 +493,7 @@ export default function ChatWindow({
 
             {loading && (
               <div className="copilot-message-row">
-                <div className="copilot-avatar assistant">AI</div>
+                <div className="copilot-avatar assistant">C1</div>
                 <div className="copilot-bubble assistant" style={{ maxWidth: "900 px" }}>
                   {messages[step]}
                 </div>
@@ -563,7 +537,7 @@ export default function ChatWindow({
 
         {/* SIDEBAR */}
         <div className="copilot-sidebar">
-          {/* <div className="copilot-sidebar-section">
+          <div className="copilot-sidebar-section">
             <h4>Capabilities</h4>
             <ul>
               <li>Inventory lookup</li>
@@ -571,9 +545,11 @@ export default function ChatWindow({
               <li>Export reports</li>
               <li>Chart visualization</li>
             </ul>
-          </div> */}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+

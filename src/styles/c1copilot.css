@@ -35,9 +35,9 @@ body {
 .copilot-shell {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 70px);
+    height: calc(100vh - 20px);
     /*  max-width: 960px; */
-    margin: 20px;
+    margin: 8px;
     border-radius: 16px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
@@ -296,7 +296,7 @@ body {
 
 @media (max-width: 900px) {
     .copilot-shell {
-        height: calc(100vh - 70px);
+        height: calc(100vh - 20px);
         margin: 15px;
     }
 
