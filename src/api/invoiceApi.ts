@@ -15,10 +15,14 @@ export interface Invoice {
   [key: string]: any;
 }
 
+interface InvoiceTableData {
+  rows?: Invoice[];
+}
+
 export interface InvoiceResponse {
   success: boolean;
   message: string;
-  data: Invoice[];
+  data: Invoice[] | InvoiceTableData;
   code: number;
 }
 

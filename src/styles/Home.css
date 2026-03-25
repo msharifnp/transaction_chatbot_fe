@@ -159,7 +159,7 @@
 .transaction-section {
   flex: 0.95;
   overflow-y: auto;
-  background: white;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6f7 100%);
   width: 100%;
 }
 
@@ -168,6 +168,28 @@
   max-width: 100%;
   margin: 0;
   width: 100%;
+}
+
+.workspace-nav {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px 0;
+}
+
+.workspace-tab {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.workspace-tab.active {
+  background: #0f766e;
+  color: #fff;
 }
 
 .compare-btn {

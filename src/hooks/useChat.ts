@@ -175,5 +175,11 @@ export function useChat(
     [tenantId, sessionIdRef, setSessionId]
   );
 
-  return { chatHistory, loading, err, sendMessage };
+  const clearChat = useCallback(() => {
+    setChatHistory([]);
+    setLoading(false);
+    setErr(null);
+  }, []);
+
+  return { chatHistory, loading, err, sendMessage, clearChat };
 }
