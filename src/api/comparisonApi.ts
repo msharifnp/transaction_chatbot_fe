@@ -35,6 +35,7 @@
 
 
 import axios, { AxiosError } from "axios";
+import { getAuthHeaders } from "./auth";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
@@ -61,47 +62,26 @@ export interface ComparisonResponse {
 }
 
 export async function compareInvoice(
-  req: ComparisonRequest,
-  tenantId: string
+  req: ComparisonRequest
 ): Promise<ComparisonResponse> {
   try {
-    console.log("[API] Calling comparison API...");
-    console.log("[API] Request:", req);
-    console.log("[API] TenantId:", tenantId);
-    console.log("[API] URL:", `${API_BASE}/api/comparison/comparison`);
-    
     const response = await axios.post<ComparisonResponse>(
       `${API_BASE}/api/comparison/comparison`,
       req,
       {
-        headers: {
-          TenantId: tenantId,
-        },
-        timeout: 60000, // Increased to 60 seconds for AI processing
+        headers: getAuthHeaders(),
+        timeout: 60000,
       }
     );
-
-    console.log("[API] Response received:", response.data);
-    console.log("[API] Response status:", response.status);
-    
     return response.data;
   } catch (error) {
-    console.error("[API] Error occurred:", error);
-    
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<ComparisonResponse>;
-      
-      console.error("[API] Axios error details:");
-      console.error("[API] - Status:", axiosError.response?.status);
-      console.error("[API] - Data:", axiosError.response?.data);
-      console.error("[API] - Message:", axiosError.message);
-      
-      // If backend returned a structured error response
+
       if (axiosError.response?.data) {
         return axiosError.response.data;
       }
-      
-      // If it's a network error or timeout
+
       return {
         success: false,
         code: axiosError.response?.status || 500,
@@ -109,9 +89,7 @@ export async function compareInvoice(
         errors: ["NETWORK_ERROR"],
       };
     }
-    
-    // Unknown error
-    console.error("[API] Unknown error:", error);
+
     return {
       success: false,
       code: 500,

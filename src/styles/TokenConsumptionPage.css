@@ -1,0 +1,151 @@
+.token-consumption-page {
+  padding: 18px;
+  color: #1f2937;
+}
+
+.token-consumption-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.token-consumption-header h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  color: #0f172a;
+}
+
+.token-consumption-panel {
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.98));
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.panel-heading span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.token-consumption-table-wrap {
+  overflow-x: auto;
+}
+
+.token-consumption-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.token-col-user {
+  width: 14%;
+}
+
+.token-col-date {
+  width: 13%;
+}
+
+.token-col-provider {
+  width: 13%;
+}
+
+.token-col-metric {
+  width: 15%;
+}
+
+.token-consumption-table th,
+.token-consumption-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.token-consumption-table th {
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.token-row-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  text-transform: none;
+  letter-spacing: normal;
+  margin: 0;
+}
+
+.token-row-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+}
+
+.token-consumption-table thead th:first-child {
+  border-top-left-radius: 10px;
+}
+
+.token-consumption-table thead th:last-child {
+  border-top-right-radius: 10px;
+}
+
+.token-consumption-empty {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.token-consumption-message {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.token-consumption-message.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 1080px) {
+  .token-row-input {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 640px) {
+  .token-consumption-page {
+    padding: 14px;
+  }
+
+  .token-consumption-header {
+    flex-direction: column;
+  }
+}

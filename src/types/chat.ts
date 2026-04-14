@@ -40,6 +40,21 @@ export interface ApiResponse {
   data: DatabaseData | MessageData | ChatData | HybridData;
 }
 
+export interface VoiceTranscriptionResponse {
+  success: boolean;
+  code: number;
+  message: string;
+  errors: string[];
+  metadata?: {
+    new_session_id?: string;
+  };
+  data: {
+    transcript: string;
+    provider: string;
+    model_name: string;
+  };
+}
+
 // ==================== RESPONSE DATA TYPES ====================
 
 export interface DatabaseData {

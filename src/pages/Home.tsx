@@ -250,13 +250,10 @@ import React, { useState, useEffect } from "react";
 import { fetchInvoices, Invoice } from "../api/invoiceApi";
 import { formatCell, fmtNum } from "../utils/format";
 import { compareInvoice } from "../api/comparisonApi";
+import { getAuthHeaders } from "../api/auth";
 import "../styles/Home.css";
 
-interface Props {
-  tenantId: string;
-}
-
-export default function Home({ tenantId }: Props) {
+export default function Home() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -270,7 +267,7 @@ export default function Home({ tenantId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchInvoices(tenantId, fromDate, toDate);
+      const response = await fetchInvoices(fromDate, toDate);
       if (response.success) {
         setInvoices(response.data || []);
         if (response.data && response.data.length > 0) {
@@ -298,13 +295,10 @@ export default function Home({ tenantId }: Props) {
       const invoiceDate = invoice.InvoiceDate as string;
       const currentDate = invoiceDate.split("T")[0];
 
-      const response = await compareInvoice(
-        {
-          AccountNumber: invoice.AccountNumber as string,
-          CurrentDate: currentDate,
-        },
-        tenantId
-      );
+      const response = await compareInvoice({
+        AccountNumber: invoice.AccountNumber as string,
+        CurrentDate: currentDate,
+      });
 
       if (response.success && response.data?.file_id) {
         setFileIds((prev) => ({
@@ -333,9 +327,7 @@ export default function Home({ tenantId }: Props) {
 
       const response = await fetch(url, {
         method: "GET",
-        headers: {
-          TenantId: tenantId,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

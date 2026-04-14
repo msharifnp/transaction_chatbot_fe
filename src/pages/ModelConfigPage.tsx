@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createModelConfig,
   deleteModelConfig,
@@ -12,91 +12,102 @@ import {
 } from "../api/modelConfigApi";
 import "../styles/ModelConfigPage.css";
 
-interface Props {
-  tenantId: string;
-}
-
+const VOICE_PURPOSE = "Voice";
 const emptyOptions: ModelConfigOptions = {
   purposes: [],
   providers: [],
   models_by_provider: {},
 };
 
+const llmDefaults = {
+  temperature: 0,
+  topP: 0.8,
+  topK: 20,
+  maxTokens: 10000,
+};
+
+const voiceDefaults = {
+  languageCode: "en-US",
+  alternativeLanguageCodes: ["ar-SA"],
+  sampleRateHertz: 16000,
+  encoding: "LINEAR16",
+  enableAutomaticPunctuation: true,
+  enableWordTimeOffsets: false,
+};
+
 const emptyForm: ModelConfigPayload = {
   Purpose: "Technical",
   Provider: "Anthropic",
   ModelName: "Claude-3-Opus",
-  ApiKey: "",
-  Temperature: 0.0,
-  TopP: 0.8,
-  TopK: 20,
-  MaxOutputTokens: 10000,
+  CredentialsRef: "",
+  SecretValue: "",
+  Config: { ...llmDefaults },
 };
 
-function buildVisibleKeyMap(configList: ModelConfigRecord[]) {
-  return configList.reduce<Record<number, boolean>>((acc, config) => {
-    acc[config.Id] = false;
-    return acc;
-  }, {});
+function isVoicePurpose(purpose: string) {
+  return purpose === VOICE_PURPOSE;
 }
 
-function EyeToggleButton({
-  visible,
-  onClick,
-  label,
-}: {
-  visible: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      className="icon-btn"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx="12"
-          cy="12"
-          r="3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        {visible && (
-          <path
-            d="M4 20 20 4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        )}
-      </svg>
-    </button>
-  );
+function normalizeLlmConfig(config?: Record<string, any>) {
+  return {
+    temperature: Number(config?.temperature ?? llmDefaults.temperature),
+    topP: Number(config?.topP ?? llmDefaults.topP),
+    topK: Number(config?.topK ?? llmDefaults.topK),
+    maxTokens: Number(config?.maxTokens ?? llmDefaults.maxTokens),
+  };
 }
 
-function maskApiKey(apiKey: string) {
-  if (!apiKey) {
-    return "-";
+function normalizeVoiceConfig(config?: Record<string, any>) {
+  const alternativeLanguageCodes = Array.isArray(config?.alternativeLanguageCodes)
+    ? config?.alternativeLanguageCodes
+    : typeof config?.alternativeLanguageCodes === "string"
+      ? config.alternativeLanguageCodes
+          .split(",")
+          .map((code: string) => code.trim())
+          .filter(Boolean)
+      : voiceDefaults.alternativeLanguageCodes;
+
+  return {
+    languageCode: String(config?.languageCode ?? voiceDefaults.languageCode),
+    alternativeLanguageCodes,
+    sampleRateHertz: Number(config?.sampleRateHertz ?? voiceDefaults.sampleRateHertz),
+    encoding: String(config?.encoding ?? voiceDefaults.encoding).toUpperCase(),
+    enableAutomaticPunctuation: Boolean(
+      config?.enableAutomaticPunctuation ?? voiceDefaults.enableAutomaticPunctuation
+    ),
+    enableWordTimeOffsets: Boolean(
+      config?.enableWordTimeOffsets ?? voiceDefaults.enableWordTimeOffsets
+    ),
+  };
+}
+
+function formatConfigPreview(config: Record<string, any>, purpose: string) {
+  if (isVoicePurpose(purpose)) {
+    const voiceConfig = normalizeVoiceConfig(config);
+    const altLanguages = voiceConfig.alternativeLanguageCodes.length
+      ? voiceConfig.alternativeLanguageCodes.join(", ")
+      : "-";
+
+    return [
+      `Primary: ${voiceConfig.languageCode}`,
+      `Alt: ${altLanguages}`,
+      `${voiceConfig.sampleRateHertz} Hz`,
+      voiceConfig.encoding,
+      `Punctuation: ${voiceConfig.enableAutomaticPunctuation ? "On" : "Off"}`,
+      `Word Offsets: ${voiceConfig.enableWordTimeOffsets ? "On" : "Off"}`,
+    ].join(" | ");
   }
 
-  return "*".repeat(Math.max(8, Math.min(apiKey.length, 16)));
+  const llmConfig = normalizeLlmConfig(config);
+  return [
+    `Temp: ${llmConfig.temperature}`,
+    `Top P: ${llmConfig.topP}`,
+    `Top K: ${llmConfig.topK}`,
+    `Max Tokens: ${llmConfig.maxTokens}`,
+  ].join(" | ");
 }
 
-export default function ModelConfigPage({ tenantId }: Props) {
+export default function ModelConfigPage() {
   const [configs, setConfigs] = useState<ModelConfigRecord[]>([]);
   const [options, setOptions] = useState<ModelConfigOptions>(emptyOptions);
   const [form, setForm] = useState<ModelConfigPayload>(emptyForm);
@@ -105,15 +116,58 @@ export default function ModelConfigPage({ tenantId }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
-  const [visibleConfigKeys, setVisibleConfigKeys] = useState<Record<number, boolean>>({});
 
-  const getModelOptions = (provider: string, selectedModel?: string) => {
-    const providerModels = options.models_by_provider[provider] || [];
-    if (selectedModel && !providerModels.includes(selectedModel)) {
-      return [selectedModel, ...providerModels];
+  const providerOptions = useMemo(() => {
+    return options.providers.length ? options.providers : [emptyForm.Provider];
+  }, [options.providers]);
+
+  const modelOptions = useMemo(() => {
+    const providerModels = options.models_by_provider[form.Provider] || [];
+    if (providerModels.length) {
+      return providerModels;
     }
-    return providerModels;
+
+    return form.ModelName ? [form.ModelName] : [emptyForm.ModelName];
+  }, [form.ModelName, form.Provider, form.Purpose, options.models_by_provider]);
+
+  const currentLlmConfig = normalizeLlmConfig(form.Config);
+  const currentVoiceConfig = normalizeVoiceConfig(form.Config);
+
+  const buildDefaultForm = (
+    purpose: string,
+    previous?: ModelConfigPayload,
+    sourceOptions: ModelConfigOptions = options
+  ): ModelConfigPayload => {
+    const availableProviders = sourceOptions.providers;
+    const fallbackProvider = previous?.Provider || emptyForm.Provider;
+    const provider = availableProviders.includes(fallbackProvider)
+      ? fallbackProvider
+      : availableProviders[0] || fallbackProvider;
+    const models = sourceOptions.models_by_provider[provider] || [];
+    const fallbackModel = previous?.ModelName || emptyForm.ModelName;
+    const modelName = models.includes(fallbackModel)
+      ? fallbackModel
+      : models[0] || fallbackModel;
+
+    if (isVoicePurpose(purpose)) {
+      return {
+        Purpose: VOICE_PURPOSE,
+        Provider: provider,
+        ModelName: modelName,
+        CredentialsRef: previous?.CredentialsRef || "",
+        SecretValue: "",
+        Config: normalizeVoiceConfig(previous?.Config),
+      };
+    }
+
+    return {
+      Purpose: purpose,
+      Provider: provider,
+      ModelName: modelName,
+      CredentialsRef: previous?.CredentialsRef || "",
+      SecretValue: "",
+      Config: normalizeLlmConfig(previous?.Config),
+    };
   };
 
   const loadConfigs = async () => {
@@ -121,10 +175,8 @@ export default function ModelConfigPage({ tenantId }: Props) {
     setError(null);
 
     try {
-      const response = await getModelConfigs(tenantId);
-      const configList = response.data || [];
-      setConfigs(configList);
-      setVisibleConfigKeys(buildVisibleKeyMap(configList));
+      const response = await getModelConfigs();
+      setConfigs(response.data || []);
     } catch (err: any) {
       setError(err.response?.data?.detail?.message || err.message);
     } finally {
@@ -139,34 +191,19 @@ export default function ModelConfigPage({ tenantId }: Props) {
 
       try {
         const [configResponse, optionsResponse] = await Promise.all([
-          getModelConfigs(tenantId),
-          getModelConfigOptions(tenantId),
+          getModelConfigs(),
+          getModelConfigOptions(),
         ]);
 
         const configList = configResponse.data || [];
+        const nextOptions = optionsResponse.data || emptyOptions;
+        const initialPurpose = nextOptions.purposes.includes(emptyForm.Purpose)
+          ? emptyForm.Purpose
+          : nextOptions.purposes[0] || emptyForm.Purpose;
+
         setConfigs(configList);
-        setVisibleConfigKeys(buildVisibleKeyMap(configList));
-        setOptions(optionsResponse.data || emptyOptions);
-
-        const firstPurpose = optionsResponse.data?.purposes?.[0] || emptyForm.Purpose;
-        const firstProvider = optionsResponse.data?.providers?.[0] || emptyForm.Provider;
-        const firstModel =
-          optionsResponse.data?.models_by_provider?.[firstProvider]?.[0] ||
-          emptyForm.ModelName;
-
-        setForm((prev) => ({
-          ...prev,
-          Purpose: optionsResponse.data?.purposes?.includes(prev.Purpose)
-            ? prev.Purpose
-            : firstPurpose,
-          Provider: optionsResponse.data?.providers?.includes(prev.Provider)
-            ? prev.Provider
-            : firstProvider,
-          ModelName:
-            optionsResponse.data?.models_by_provider?.[prev.Provider]?.includes(prev.ModelName)
-              ? prev.ModelName
-              : firstModel,
-        }));
+        setOptions(nextOptions);
+        setForm((prev) => buildDefaultForm(initialPurpose, prev, nextOptions));
       } catch (err: any) {
         setError(err.response?.data?.detail?.message || err.message);
       } finally {
@@ -174,14 +211,28 @@ export default function ModelConfigPage({ tenantId }: Props) {
       }
     };
 
-    loadPageData();
-  }, [tenantId]);
+    void loadPageData();
+  }, []);
 
-  const modelOptions = getModelOptions(form.Provider, form.ModelName);
+  const updateConfigValue = (key: string, value: any) => {
+    setForm((prev) => ({
+      ...prev,
+      Config: {
+        ...prev.Config,
+        [key]: value,
+      },
+    }));
+  };
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = event.target;
-    const numericFields = ["Temperature", "TopP", "TopK", "MaxOutputTokens"];
+
+    if (name === "Purpose") {
+      setForm((prev) => buildDefaultForm(value, prev));
+      return;
+    }
 
     if (name === "Provider") {
       const nextModels = options.models_by_provider[value] || [];
@@ -193,26 +244,44 @@ export default function ModelConfigPage({ tenantId }: Props) {
       return;
     }
 
+    if (name === "alternativeLanguageCodes") {
+      updateConfigValue(
+        "alternativeLanguageCodes",
+        value
+          .split(",")
+          .map((code) => code.trim())
+          .filter(Boolean)
+      );
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
-      [name]: numericFields.includes(name) ? Number(value) : value,
+      [name]: value,
     }));
   };
 
-  const resetForm = (clearMessages = true) => {
-    const firstPurpose = options.purposes[0] || emptyForm.Purpose;
-    const firstProvider = options.providers[0] || emptyForm.Provider;
-    const firstModel =
-      options.models_by_provider[firstProvider]?.[0] || emptyForm.ModelName;
+  const handleLlmConfigChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = event.target;
+    updateConfigValue(name, Number(value));
+  };
 
-    setForm({
-      ...emptyForm,
-      Purpose: firstPurpose,
-      Provider: firstProvider,
-      ModelName: firstModel,
-    });
+  const handleVoiceCheckboxChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, checked } = event.target;
+    updateConfigValue(name, checked);
+  };
+
+  const resetForm = (clearMessages = true) => {
+    const defaultPurpose = options.purposes.includes(emptyForm.Purpose)
+      ? emptyForm.Purpose
+      : options.purposes[0] || emptyForm.Purpose;
+
+    setForm(buildDefaultForm(defaultPurpose));
     setSelectedId(null);
-    setIsApiKeyVisible(false);
     if (clearMessages) {
       setSuccessMessage(null);
       setError(null);
@@ -224,20 +293,21 @@ export default function ModelConfigPage({ tenantId }: Props) {
     setSuccessMessage(null);
 
     try {
-      const response = await getModelConfigById(tenantId, configId);
+      const response = await getModelConfigById(configId);
       const config = response.data;
-      setSelectedId(config.Id);
-      setIsApiKeyVisible(false);
-      setForm({
+      const nextForm: ModelConfigPayload = {
         Purpose: config.Purpose,
         Provider: config.Provider,
         ModelName: config.ModelName,
-        ApiKey: config.ApiKey,
-        Temperature: config.Temperature,
-        TopP: config.TopP,
-        TopK: config.TopK,
-        MaxOutputTokens: config.MaxOutputTokens,
-      });
+        CredentialsRef: config.CredentialsRef,
+        SecretValue: "",
+        Config: isVoicePurpose(config.Purpose)
+          ? normalizeVoiceConfig(config.Config)
+          : normalizeLlmConfig(config.Config),
+      };
+
+      setSelectedId(config.Id);
+      setForm(nextForm);
     } catch (err: any) {
       setError(err.response?.data?.detail?.message || err.message);
     }
@@ -250,9 +320,17 @@ export default function ModelConfigPage({ tenantId }: Props) {
     setSuccessMessage(null);
 
     try {
+      const payload: ModelConfigPayload = {
+        ...form,
+        SecretValue: form.SecretValue?.trim() || undefined,
+        Config: isVoicePurpose(form.Purpose)
+          ? normalizeVoiceConfig(form.Config)
+          : normalizeLlmConfig(form.Config),
+      };
+
       const response = selectedId
-        ? await updateModelConfig(tenantId, selectedId, form)
-        : await createModelConfig(tenantId, form);
+        ? await updateModelConfig(selectedId, payload)
+        : await createModelConfig(payload);
 
       await loadConfigs();
       resetForm(false);
@@ -277,7 +355,7 @@ export default function ModelConfigPage({ tenantId }: Props) {
     setSuccessMessage(null);
 
     try {
-      const response = await deleteModelConfig(tenantId, configId);
+      const response = await deleteModelConfig(configId);
       if (selectedId === configId) {
         resetForm(false);
       }
@@ -292,8 +370,7 @@ export default function ModelConfigPage({ tenantId }: Props) {
     <div className="model-config-page">
       <div className="model-config-header">
         <div>
-          <h1>Model Config Details</h1>
-          
+          <h1>Model Configuration</h1>
         </div>
         <button type="button" className="secondary-btn" onClick={loadConfigs}>
           {loading ? "Refreshing..." : "Refresh"}
@@ -335,7 +412,7 @@ export default function ModelConfigPage({ tenantId }: Props) {
             <label>
               Provider
               <select name="Provider" value={form.Provider} onChange={handleChange}>
-                {options.providers.map((provider) => (
+                {providerOptions.map((provider) => (
                   <option key={provider} value={provider}>
                     {provider}
                   </option>
@@ -355,77 +432,164 @@ export default function ModelConfigPage({ tenantId }: Props) {
             </label>
 
             <label className="full-width">
-              API Key
-              <div className="password-input-wrap">
-                <input
-                  name="ApiKey"
-                  type={isApiKeyVisible ? "text" : "password"}
-                  value={form.ApiKey}
-                  onChange={handleChange}
-                  placeholder="Enter provider API key"
-                  required
-                />
-                <EyeToggleButton
-                  visible={isApiKeyVisible}
-                  onClick={() => setIsApiKeyVisible((prev) => !prev)}
-                  label={isApiKeyVisible ? "Hide" : "Show"}
-                />
+              Secret Key
+              <textarea
+                name="SecretValue"
+                className="credential-textarea"
+                value={form.SecretValue || ""}
+                onChange={handleChange}
+                placeholder={
+                  selectedId
+                    ? "Leave blank to keep the current Key Vault secret"
+                    : isVoicePurpose(form.Purpose)
+                      ? "Enter service account JSON"
+                      : "Enter provider secret key"
+                }
+                rows={5}
+                required={!selectedId}
+              />
+              {form.CredentialsRef && (
+                <div className="hint-text">
+                  
+                </div>
+              )}
+            </label>
+
+            {isVoicePurpose(form.Purpose) ? (
+              <div className="config-panel full-width">
+                <div className="config-panel-title">Transcription Parameters</div>
+
+                <label>
+                  Primary Language
+                  <input
+                    name="languageCode"
+                    value={currentVoiceConfig.languageCode}
+                    onChange={(event) =>
+                      updateConfigValue("languageCode", event.target.value)
+                    }
+                    placeholder="en-US"
+                  />
+                </label>
+
+                <label>
+                  Alternative Language
+                  <input
+                    name="alternativeLanguageCodes"
+                    value={currentVoiceConfig.alternativeLanguageCodes.join(", ")}
+                    onChange={handleChange}
+                    placeholder="ar-SA, hi-IN"
+                  />
+                </label>
+
+                <label>
+                  Sample Rate Hertz
+                  <input
+                    name="sampleRateHertz"
+                    type="number"
+                    min="8000"
+                    step="1000"
+                    value={currentVoiceConfig.sampleRateHertz}
+                    onChange={(event) =>
+                      updateConfigValue("sampleRateHertz", Number(event.target.value))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Encoding
+                  <input
+                    name="encoding"
+                    value={currentVoiceConfig.encoding}
+                    onChange={(event) =>
+                      updateConfigValue("encoding", event.target.value)
+                    }
+                    placeholder="LINEAR16"
+                  />
+                </label>
+
+                <label className="checkbox-field">
+                  <input
+                    name="enableAutomaticPunctuation"
+                    type="checkbox"
+                    checked={currentVoiceConfig.enableAutomaticPunctuation}
+                    onChange={handleVoiceCheckboxChange}
+                  />
+                  <span>Enable Automatic Punctuation</span>
+                </label>
+
+                <label className="checkbox-field">
+                  <input
+                    name="enableWordTimeOffsets"
+                    type="checkbox"
+                    checked={currentVoiceConfig.enableWordTimeOffsets}
+                    onChange={handleVoiceCheckboxChange}
+                  />
+                  <span>Enable Word Time Offsets</span>
+                </label>
+
+                <div className="hint-text">
+                  
+                </div>
               </div>
-            </label>
+            ) : (
+              <div className="config-panel full-width">
+                <div className="config-panel-title">LLM Generation Parameters</div>
 
-            <label>
-              Temperature
-              <input
-                name="Temperature"
-                type="number"
-                min="0"
-                max="2"
-                step="0.1"
-                value={form.Temperature}
-                onChange={handleChange}
-                required
-              />
-            </label>
+                <label>
+                  Temperature
+                  <input
+                    name="temperature"
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={currentLlmConfig.temperature}
+                    onChange={handleLlmConfigChange}
+                    required
+                  />
+                </label>
 
-            <label>
-              Top P
-              <input
-                name="TopP"
-                type="number"
-                min="0"
-                max="1"
-                step="0.1"
-                value={form.TopP}
-                onChange={handleChange}
-                required
-              />
-            </label>
+                <label>
+                  Top P
+                  <input
+                    name="topP"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={currentLlmConfig.topP}
+                    onChange={handleLlmConfigChange}
+                    required
+                  />
+                </label>
 
-            <label>
-              Top K
-              <input
-                name="TopK"
-                type="number"
-                min="0"
-                step="1"
-                value={form.TopK}
-                onChange={handleChange}
-                required
-              />
-            </label>
+                <label>
+                  Top K
+                  <input
+                    name="topK"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={currentLlmConfig.topK}
+                    onChange={handleLlmConfigChange}
+                    required
+                  />
+                </label>
 
-            <label>
-              Max Output Tokens
-              <input
-                name="MaxOutputTokens"
-                type="number"
-                min="1"
-                step="1"
-                value={form.MaxOutputTokens}
-                onChange={handleChange}
-                required
-              />
-            </label>
+                <label>
+                  Max Tokens
+                  <input
+                    name="maxTokens"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={currentLlmConfig.maxTokens}
+                    onChange={handleLlmConfigChange}
+                    required
+                  />
+                </label>
+              </div>
+            )}
 
             <div className="form-actions full-width">
               <button type="submit" className="primary-btn" disabled={saving}>
@@ -464,11 +628,8 @@ export default function ModelConfigPage({ tenantId }: Props) {
                     <th>Purpose</th>
                     <th>Provider</th>
                     <th>Model</th>
-                    <th>Temperature</th>
-                    <th>Top P</th>
-                    <th>Top K</th>
-                    <th>Max Tokens</th>
-                    <th className="api-key-column">API Key</th>
+                    <th className="api-key-column">Key Vault Secret</th>
+                    <th className="config-column">Config</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -478,31 +639,10 @@ export default function ModelConfigPage({ tenantId }: Props) {
                       <td>{config.Purpose}</td>
                       <td>{config.Provider}</td>
                       <td>{config.ModelName}</td>
-                      <td>{config.Temperature}</td>
-                      <td>{config.TopP}</td>
-                      <td>{config.TopK}</td>
-                      <td>{config.MaxOutputTokens}</td>
-                      <td className="api-key-column">
-                        <div className="api-key-cell">
-                          <span className="api-key-value">
-                            {visibleConfigKeys[config.Id]
-                              ? config.ApiKey || "-"
-                              : maskApiKey(config.ApiKey)}
-                          </span>
-                          <EyeToggleButton
-                            visible={Boolean(visibleConfigKeys[config.Id])}
-                            onClick={() =>
-                              setVisibleConfigKeys((prev) => ({
-                                ...prev,
-                                [config.Id]: !prev[config.Id],
-                              }))
-                            }
-                            label={
-                              visibleConfigKeys[config.Id]
-                                ? `Hide`
-                                : `Show`
-                            }
-                          />
+                      <td className="api-key-column">{config.CredentialsRef || "-"}</td>
+                      <td className="config-column">
+                        <div className="config-preview">
+                          {formatConfigPreview(config.Config || {}, config.Purpose)}
                         </div>
                       </td>
                       <td className="actions-cell">

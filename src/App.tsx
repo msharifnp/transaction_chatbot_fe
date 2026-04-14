@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChat } from "./hooks/useChat";
 import Home from "./pages/Home";
 import ModelConfigPage from "./pages/ModelConfigPage";
+import TokenConsumptionPage from "./pages/TokenConsumptionPage";
 import ChatWindow from "./components/ChatWindow";
 import { startSession as apiStartSession } from "./api/searchApi";
 import { endSession as apiEndSession } from "./api/searchApi";
@@ -12,23 +13,26 @@ import {
   exportChartPNG,
 } from "./utils/export";
 
-type AppView = "transactions" | "model-config";
+type AppView = "transactions" | "model-config" | "token-usage";
 
 function getViewFromHash(): AppView {
-  return window.location.hash === "#/model-config"
-    ? "model-config"
-    : "transactions";
+  switch (window.location.hash) {
+    case "#/model-config":
+      return "model-config";
+    case "#/token-usage":
+      return "token-usage";
+    default:
+      return "transactions";
+  }
 }
 
 export default function App() {
-  const tenantId = "a5fbcb69-eda8-20bd-4c29-3a1a8969d9e4";
   const [activeView, setActiveView] = useState<AppView>(getViewFromHash);
 
   const sessionIdRef = useRef<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const { chatHistory, loading, sendMessage, clearChat } = useChat(
-    tenantId,
+  const { chatHistory, loading, sendMessage, sendVoiceMessage, clearChat } = useChat(
     sessionIdRef,
     setSessionId
   );
@@ -43,12 +47,21 @@ export default function App() {
   }, []);
 
   const navigateTo = (view: AppView) => {
-    window.location.hash = view === "model-config" ? "/model-config" : "/";
+    switch (view) {
+      case "model-config":
+        window.location.hash = "/model-config";
+        break;
+      case "token-usage":
+        window.location.hash = "/token-usage";
+        break;
+      default:
+        window.location.hash = "/";
+    }
   };
 
   const startSession = async () => {
     try {
-      const res = await apiStartSession(tenantId);
+      const res = await apiStartSession();
       const data = res.data;
 
       sessionIdRef.current = data.SessionId;
@@ -61,7 +74,7 @@ export default function App() {
   const endSession = async () => {
     try {
       if (sessionIdRef.current) {
-        await apiEndSession(tenantId, sessionIdRef.current);
+        await apiEndSession(sessionIdRef.current);
       }
     } catch (err) {
       console.error("[App] Failed to end session", err);
@@ -80,20 +93,15 @@ export default function App() {
             chatHistory={chatHistory}
             loading={loading}
             onSend={sendMessage}
+            onSendVoice={sendVoiceMessage}
             onOpen={startSession}
             isSessionActive={Boolean(sessionId)}
             onClose={endSession}
-            onExportPDF={(index) =>
-              exportToPDF(tenantId, sessionIdRef.current, index)
-            }
-            onExportWord={(index) =>
-              exportToWord(tenantId, sessionIdRef.current, index)
-            }
-            onExportExcel={(index) =>
-              exportToExcel(tenantId, sessionIdRef.current, index)
-            }
+            onExportPDF={(index) => exportToPDF(sessionIdRef.current, index)}
+            onExportWord={(index) => exportToWord(sessionIdRef.current, index)}
+            onExportExcel={(index) => exportToExcel(sessionIdRef.current, index)}
             onExportChartPNG={(index) =>
-              exportChartPNG(tenantId, sessionIdRef.current, index)
+              exportChartPNG(sessionIdRef.current, index)
             }
           />
         </div>
@@ -122,12 +130,25 @@ export default function App() {
             >
               Model Config
             </button>
+            <button
+              className={
+                activeView === "token-usage"
+                  ? "workspace-tab active"
+                  : "workspace-tab"
+              }
+              onClick={() => navigateTo("token-usage")}
+              type="button"
+            >
+              Token Usage
+            </button>
           </div>
 
           {activeView === "model-config" ? (
-            <ModelConfigPage tenantId={tenantId} />
+            <ModelConfigPage />
+          ) : activeView === "token-usage" ? (
+            <TokenConsumptionPage />
           ) : (
-            <Home tenantId={tenantId} />
+            <Home />
           )}
         </div>
       </div>

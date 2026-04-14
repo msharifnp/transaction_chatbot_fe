@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuthHeaders } from "./auth";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
@@ -26,45 +27,29 @@ export interface InvoiceResponse {
   code: number;
 }
 
-export function fetchInvoices(
-  tenantId: string,
-  fromDate: string,
-  toDate: string
-) {
-  console.log("[fetchInvoices] 🚀 Fetching invoices:", { fromDate, toDate });
-
-  return axios.get<InvoiceResponse>(`${API_BASE}/api/invoices/fetch`, {
-    params: {
-      FromDate: fromDate,
-      ToDate: toDate,
-    },
-    headers: {
-      TenantId: tenantId,
-    },
-    timeout: 30000,
-  }).then((res) => {
-    console.log("[fetchInvoices] ✅ Response:", res.data);
-    
-    // Handle different response structures
-    let invoices: Invoice[] = [];
-    if (res.data.data) {
-      if (Array.isArray(res.data.data)) {
-        // If data is already an array of invoices
-        invoices = res.data.data;
-      } else if (res.data.data.rows && Array.isArray(res.data.data.rows)) {
-        // If data has rows property (objects with column keys)
-        invoices = res.data.data.rows;
+export function fetchInvoices(fromDate: string, toDate: string) {
+  return axios
+    .get<InvoiceResponse>(`${API_BASE}/api/invoices/fetch`, {
+      params: {
+        FromDate: fromDate,
+        ToDate: toDate,
+      },
+      headers: getAuthHeaders(),
+      timeout: 30000,
+    })
+    .then((res) => {
+      let invoices: Invoice[] = [];
+      if (res.data.data) {
+        if (Array.isArray(res.data.data)) {
+          invoices = res.data.data;
+        } else if (res.data.data.rows && Array.isArray(res.data.data.rows)) {
+          invoices = res.data.data.rows;
+        }
       }
-    }
-    
-    console.log("[fetchInvoices] Parsed invoices:", invoices);
-    
-    return {
-      ...res.data,
-      data: invoices
-    };
-  }).catch((err) => {
-    console.error("[fetchInvoices] ❌ Error:", err);
-    throw err;
-  });
+
+      return {
+        ...res.data,
+        data: invoices,
+      };
+    });
 }

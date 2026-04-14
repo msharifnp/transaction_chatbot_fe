@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "../types/chat";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { formatCell } from "../utils/format";
+import { getModelConfigs } from "../api/modelConfigApi";
 
 const COLUMN_WIDTHS: Record<string, number> = {
   Id: 220,
@@ -20,6 +21,7 @@ type Props = {
   chatHistory: ChatMessage[];
   loading: boolean;
   onSend: (query: string) => void;
+  onSendVoice: (audio: Blob) => Promise<void> | void;
   onExportPDF: (messageIndex: number) => void;
   onExportWord: (messageIndex: number) => void;
   onExportExcel: (messageIndex: number) => void;
@@ -29,10 +31,127 @@ type Props = {
   onClose: () => void;
 };
 
+function mergeFloat32Buffers(buffers: Float32Array[]) {
+  const totalLength = buffers.reduce((sum, buffer) => sum + buffer.length, 0);
+  const result = new Float32Array(totalLength);
+  let offset = 0;
+
+  buffers.forEach((buffer) => {
+    result.set(buffer, offset);
+    offset += buffer.length;
+  });
+
+  return result;
+}
+
+function downsampleBuffer(
+  buffer: Float32Array,
+  inputSampleRate: number,
+  outputSampleRate: number
+) {
+  if (outputSampleRate >= inputSampleRate) {
+    return buffer;
+  }
+
+  const sampleRateRatio = inputSampleRate / outputSampleRate;
+  const newLength = Math.round(buffer.length / sampleRateRatio);
+  const result = new Float32Array(newLength);
+  let offsetResult = 0;
+  let offsetBuffer = 0;
+
+  while (offsetResult < result.length) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+    let accum = 0;
+    let count = 0;
+
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i += 1) {
+      accum += buffer[i];
+      count += 1;
+    }
+
+    result[offsetResult] = count > 0 ? accum / count : 0;
+    offsetResult += 1;
+    offsetBuffer = nextOffsetBuffer;
+  }
+
+  return result;
+}
+
+function encodeWavBlob(samples: Float32Array, sampleRate: number) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i += 1) {
+      view.setUint8(offset + i, value.charCodeAt(i));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i += 1) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(
+      offset,
+      sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+      true
+    );
+    offset += 2;
+  }
+
+  return new Blob([view], { type: "audio/wav" });
+}
+
+const SIGNAL_BAR_COUNT = 20;
+
+function createIdleSignalLevels() {
+  return Array.from({ length: SIGNAL_BAR_COUNT }, () => 0.08);
+}
+
+function buildSignalLevels(samples: ArrayLike<number>) {
+  if (!samples.length) {
+    return createIdleSignalLevels();
+  }
+
+  const levels: number[] = [];
+  const bucketSize = Math.max(1, Math.floor(samples.length / SIGNAL_BAR_COUNT));
+
+  for (let barIndex = 0; barIndex < SIGNAL_BAR_COUNT; barIndex += 1) {
+    const start = barIndex * bucketSize;
+    const end = Math.min(samples.length, start + bucketSize);
+    let peak = 0;
+
+    for (let i = start; i < end; i += 1) {
+      const amplitude = Math.abs((samples[i] - 128) / 128);
+      if (amplitude > peak) {
+        peak = amplitude;
+      }
+    }
+
+    levels.push(Math.max(0.08, Math.min(1, peak * 2.8)));
+  }
+
+  return levels;
+}
+
 export default function ChatWindow({
   chatHistory,
   loading,
   onSend,
+  onSendVoice,
   onOpen,
   isSessionActive,
   onClose,
@@ -44,7 +163,24 @@ export default function ChatWindow({
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRecorderReady, setIsRecorderReady] = useState(false);
+  const [isVoiceDetected, setIsVoiceDetected] = useState(false);
+  const [signalLevels, setSignalLevels] = useState(createIdleSignalLevels);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveformFrameRef = useRef<number | null>(null);
+  const waveformBufferRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const audioChunksRef = useRef<Float32Array[]>([]);
+  const targetSampleRateRef = useRef(16000);
+  const inputSampleRateRef = useRef(16000);
+  const cachedVoiceSampleRateRef = useRef(16000);
+  const voiceSampleRateLoadedRef = useRef(false);
+  const isRecordingSetupRef = useRef(false);
 
   const loadingSteps = ["Preparing response"];
 
@@ -61,10 +197,206 @@ export default function ChatWindow({
     return () => clearInterval(intervalId);
   }, [loading]);
 
+  const stopWaveformAnimation = () => {
+    if (waveformFrameRef.current !== null) {
+      window.cancelAnimationFrame(waveformFrameRef.current);
+      waveformFrameRef.current = null;
+    }
+
+    analyserRef.current = null;
+    waveformBufferRef.current = null;
+    setSignalLevels(createIdleSignalLevels());
+    setIsRecorderReady(false);
+    setIsVoiceDetected(false);
+  };
+
+  const startWaveformAnimation = () => {
+    if (!analyserRef.current || !waveformBufferRef.current) {
+      return;
+    }
+
+    const tick = () => {
+      const analyser = analyserRef.current;
+      const waveformBuffer = waveformBufferRef.current;
+
+      if (!analyser || !waveformBuffer) {
+        return;
+      }
+
+      analyser.getByteTimeDomainData(waveformBuffer);
+
+      let sumSquares = 0;
+      for (let i = 0; i < waveformBuffer.length; i += 1) {
+        const normalized = (waveformBuffer[i] - 128) / 128;
+        sumSquares += normalized * normalized;
+      }
+
+      const rms = Math.sqrt(sumSquares / waveformBuffer.length);
+      setIsVoiceDetected(rms > 0.035);
+      setSignalLevels(buildSignalLevels(waveformBuffer));
+      waveformFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    tick();
+  };
+
+  const cleanupRecordingResources = async () => {
+    stopWaveformAnimation();
+    processorRef.current?.disconnect();
+    analyserRef.current?.disconnect();
+    sourceNodeRef.current?.disconnect();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+    if (audioContextRef.current) {
+      await audioContextRef.current.close();
+    }
+
+    processorRef.current = null;
+    analyserRef.current = null;
+    sourceNodeRef.current = null;
+    mediaStreamRef.current = null;
+    audioContextRef.current = null;
+    audioChunksRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => {
+      void cleanupRecordingResources();
+    };
+  }, []);
+
+  useEffect(() => {
+    void getVoiceSampleRate();
+  }, []);
+
   const send = () => {
-    if (!query.trim()) return;
+    if (!query.trim() || loading || isRecording) return;
     onSend(query.trim());
     setQuery("");
+  };
+
+  const getVoiceSampleRate = async () => {
+    if (voiceSampleRateLoadedRef.current) {
+      return cachedVoiceSampleRateRef.current;
+    }
+
+    try {
+      const response = await getModelConfigs();
+      const voiceConfig = (response.data || []).find(
+        (config) => config.Purpose === "Voice"
+      );
+      const sampleRate = Number(voiceConfig?.Config?.sampleRateHertz ?? 16000);
+      const nextSampleRate =
+        Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 16000;
+      cachedVoiceSampleRateRef.current = nextSampleRate;
+      voiceSampleRateLoadedRef.current = true;
+      return nextSampleRate;
+    } catch {
+      return cachedVoiceSampleRateRef.current;
+    }
+  };
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      window.alert("Microphone access is not supported in this browser.");
+      return;
+    }
+
+    isRecordingSetupRef.current = true;
+    setIsRecording(true);
+
+    try {
+      targetSampleRateRef.current = cachedVoiceSampleRateRef.current;
+      if (!voiceSampleRateLoadedRef.current) {
+        void getVoiceSampleRate().then((sampleRate) => {
+          targetSampleRateRef.current = sampleRate;
+        });
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioContext = new AudioContext();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.72;
+
+      inputSampleRateRef.current = audioContext.sampleRate;
+      audioChunksRef.current = [];
+
+      processor.onaudioprocess = (event) => {
+        const inputData = event.inputBuffer.getChannelData(0);
+        audioChunksRef.current.push(new Float32Array(inputData));
+      };
+
+      source.connect(analyser);
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      analyserRef.current = analyser;
+      waveformBufferRef.current = new Uint8Array(
+        new ArrayBuffer(analyser.fftSize)
+      );
+      setIsRecorderReady(true);
+      startWaveformAnimation();
+
+      mediaStreamRef.current = stream;
+      audioContextRef.current = audioContext;
+      sourceNodeRef.current = source;
+      processorRef.current = processor;
+    } catch (error) {
+      console.error("[ChatWindow] Failed to start recording", error);
+      setIsRecording(false);
+      window.alert("Unable to access the microphone.");
+    } finally {
+      isRecordingSetupRef.current = false;
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      const mergedBuffer = mergeFloat32Buffers(audioChunksRef.current);
+      const downsampledBuffer = downsampleBuffer(
+        mergedBuffer,
+        inputSampleRateRef.current,
+        targetSampleRateRef.current
+      );
+      const wavBlob = encodeWavBlob(
+        downsampledBuffer,
+        targetSampleRateRef.current
+      );
+
+      await cleanupRecordingResources();
+      setIsRecording(false);
+      audioChunksRef.current = [];
+
+      if (wavBlob.size > 44) {
+        await onSendVoice(wavBlob);
+      }
+    } catch (error) {
+      console.error("[ChatWindow] Failed to stop recording", error);
+      window.alert("Unable to process the recorded audio.");
+      await cleanupRecordingResources();
+      setIsRecording(false);
+    }
+  };
+
+  const handleVoiceClick = async () => {
+    if (loading) {
+      return;
+    }
+
+    if (isRecording) {
+      if (isRecordingSetupRef.current) {
+        return;
+      }
+      await stopRecording();
+      return;
+    }
+
+    await startRecording();
   };
 
   const handleOpen = () => {
@@ -75,12 +407,22 @@ export default function ChatWindow({
   };
 
   const handleClose = () => {
+    if (isRecording) {
+      void cleanupRecordingResources();
+      setIsRecording(false);
+      isRecordingSetupRef.current = false;
+    }
     setIsOpen(false);
     setQuery("");
     onClose();
   };
 
   const handleMinimize = () => {
+    if (isRecording) {
+      void cleanupRecordingResources();
+      setIsRecording(false);
+      isRecordingSetupRef.current = false;
+    }
     setIsOpen(false);
     setQuery("");
   };
@@ -255,21 +597,22 @@ export default function ChatWindow({
               onClick={handleClose}
               style={{
                 position: "absolute",
-                top: 6,
-                right: 6,
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: "1px solid #3d4550",
+                top: 8,
+                right: 8,
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                border: "1px solid #4b5563",
                 background: "#20242b",
-                fontSize: 18,
-                lineHeight: "18px",
+                fontSize: 17,
+                lineHeight: "17px",
                 color: "#c5cbd5",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: 0,
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
               }}
             >
               x
@@ -278,21 +621,22 @@ export default function ChatWindow({
               onClick={handleMinimize}
               style={{
                 position: "absolute",
-                top: 6,
-                right: 40,
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: "1px solid #7f8ea4",
+                top: 8,
+                right: 44,
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                border: "1px solid #94a3b8",
                 background: "#e2e8f0",
-                fontSize: 18,
-                lineHeight: "18px",
+                fontSize: 17,
+                lineHeight: "17px",
                 color: "#334155",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: 0,
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.35)",
               }}
               title="Minimize"
             >
@@ -678,62 +1022,185 @@ export default function ChatWindow({
                 padding: 10,
                 borderTop: "1px solid #d9e0ec",
                 display: "flex",
-                alignItems: "center",
+                flexDirection: "column",
                 gap: 8,
                 background: "#f8fafd",
               }}
             >
-              <textarea
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask anything about invoice..."
-                rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  resize: "none",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #d0d9e6",
-                  fontSize: 16,
-                  minHeight: 44,
-                  outline: "none",
-                  background: "#ffffff",
-                }}
-              />
-              <button
-                onClick={send}
-                disabled={!query.trim()}
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 10,
-                  border: "1px solid #c5d0df",
-                  background: query.trim() ? "#95a9bf" : "#d4dde8",
-                  cursor: query.trim() ? "pointer" : "not-allowed",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="white"
+              {(isRecording || loading) && (
+                <div
                   style={{
-                    transform: "rotate(180deg)",
-                    opacity: query.trim() ? 1 : 0.6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isRecording ? "#b45309" : "#475569",
                   }}
                 >
-                  <path d="M3 12L21 3L14 12L21 21L3 12Z" />
-                </svg>
-              </button>
+                  {isRecording
+                    ? "Recording... click the microphone again to transcribe and send."
+                    : ""}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 44,
+                    borderRadius: 10,
+                    border: isRecording ? "1px solid #f5d08a" : "1px solid #d0d9e6",
+                    background: isRecording
+                      ? "linear-gradient(180deg, #fffaf0 0%, #fff7e6 100%)"
+                      : "#ffffff",
+                    overflow: "hidden",
+                    position: "relative",
+                  }}
+                >
+                  {isRecording && isRecorderReady ? (
+                    <div
+                      style={{
+                        height: "100%",
+                        minHeight: 44,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 32,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          gap: 6,
+                        }}
+                      >
+                        {signalLevels.map((level, index) => (
+                          <span
+                            key={index}
+                            style={{
+                              width: 4,
+                              height: `${Math.max(8, Math.round(level * 28))}px`,
+                              borderRadius: 999,
+                              background: "#d4147a",
+                              opacity: isVoiceDetected ? 1 : 0.75,
+                              display: "inline-block",
+                              transition: "height 70ms linear, opacity 120ms ease",
+                              transform: "translateZ(0)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <textarea
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Ask anything about invoice..."
+                      rows={1}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          send();
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        resize: "none",
+                        padding: "10px 12px",
+                        border: "none",
+                        fontSize: 16,
+                        minHeight: 58,
+                        outline: "none",
+                        background: "transparent",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  )}
+                </div>
+                <button
+                  onClick={() => void handleVoiceClick()}
+                  disabled={loading}
+                  title={isRecording ? "Stop recording" : "Start voice input"}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 10,
+                    border: isRecording
+                      ? "1px solid #f59e0b"
+                      : "1px solid #c5d0df",
+                    background: isRecording ? "#fef3c7" : "#ffffff",
+                    color: isRecording ? "#b45309" : "#334155",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 15.5a3.5 3.5 0 0 0 3.5-3.5V7A3.5 3.5 0 1 0 8.5 7v5a3.5 3.5 0 0 0 3.5 3.5Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M6 11.5a6 6 0 0 0 12 0"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M12 17.5v3"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M9 20.5h6"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={send}
+                  disabled={!query.trim() || isRecording}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 10,
+                    border: "1px solid #c5d0df",
+                    background:
+                      query.trim() && !isRecording ? "#95a9bf" : "#d4dde8",
+                    cursor:
+                      query.trim() && !isRecording ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="white"
+                    style={{
+                      transform: "rotate(180deg)",
+                      opacity: query.trim() && !isRecording ? 1 : 0.6,
+                    }}
+                  >
+                    <path d="M3 12L21 3L14 12L21 21L3 12Z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </section>
           </div>

@@ -1,100 +1,95 @@
 import axios from "axios";
-import { ApiResponse } from "../types/chat";
+import { ApiResponse, VoiceTranscriptionResponse } from "../types/chat";
+import { getAuthHeaders } from "./auth";
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
-// ================= SESSION =================
-
-export function startSession(tenantId: string) {
-  console.log("[startSession] 🚀 Starting session for tenant:", tenantId);
-  
+export function startSession() {
   return axios.post(
     `${API_BASE}/api/session/start`,
     {},
     {
-      headers: { TenantId: tenantId },
+      headers: getAuthHeaders(),
       timeout: 10000,
     }
-  ).then((res) => {
-    console.log("[startSession] ✅ Response received:", res.data);
-    return res;
-  }).catch((err) => {
-    console.error("[startSession] ❌ Error:", err);
-    throw err;
-  });
+  );
 }
 
-export const endSession = (tenantId: string, sessionId: string) => {
+export const endSession = (sessionId: string) => {
   return axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/api/session/end`,
+    `${API_BASE}/api/session/end`,
     {},
     {
-      headers: {
-        TenantId: tenantId,
+      headers: getAuthHeaders({
         SessionId: sessionId,
-      },
+      }),
     }
   );
 };
 
-
-// ================= SEARCH =================
-
 export function searchApi(payload: {
   query: string;
-  TenantId: string;
   SessionId: string | null;
 }) {
-  console.log("[searchApi] 🚀 Sending with headers:", {
-    TenantId: payload.TenantId,
-    SessionId: payload.SessionId,
-  });
-  
   return axios.post<ApiResponse>(
     `${API_BASE}/api/search`,
     { query: payload.query },
     {
-      headers: {
-        TenantId: payload.TenantId,
+      headers: getAuthHeaders({
         SessionId: payload.SessionId ?? "",
-      },
+      }),
       timeout: 300000,
     }
   );
 }
 
-// ================= EXPORTS =================
+export function transcribeVoiceApi(payload: {
+  audio: Blob;
+  SessionId: string | null;
+}) {
+  const formData = new FormData();
+  formData.append("audio_file", payload.audio, "voice-input.wav");
+
+  return axios.post<VoiceTranscriptionResponse>(
+    `${API_BASE}/api/voice/transcribe`,
+    formData,
+    {
+      headers: getAuthHeaders({
+        SessionId: payload.SessionId ?? "",
+      }),
+      timeout: 300000,
+    }
+  );
+}
+
 function cleanParams(params: Record<string, any>) {
   return Object.fromEntries(
     Object.entries(params).filter(
-      ([_, v]) => v !== undefined && v !== null
+      ([_, value]) => value !== undefined && value !== null
     )
   );
 }
 
 async function exportGet(
   url: string,
-  headers: { TenantId: string; SessionId: string },
+  headers: { SessionId: string },
   params: Record<string, any>
 ) {
   try {
-    const res = await axios.get(url, {
-      headers: {
+    return await axios.get(url, {
+      headers: getAuthHeaders({
         ...headers,
         "Cache-Control": "no-cache",
         Pragma: "no-cache",
-      },
+      }),
       params: cleanParams({
         ...params,
-        _t: Date.now(),   // 🔥 cache buster
+        _t: Date.now(),
       }),
       responseType: "blob",
       timeout: 30000,
     });
-
-    return res;
-
   } catch (err: any) {
     if (err.response?.data instanceof Blob) {
       const text = await err.response.data.text();
@@ -110,10 +105,7 @@ async function exportGet(
   }
 }
 
-
-
 export function exportPDF(payload: {
-  TenantId: string;
   SessionId: string;
   index: number;
   title?: string;
@@ -121,7 +113,6 @@ export function exportPDF(payload: {
   return exportGet(
     `${API_BASE}/api/export/pdf`,
     {
-      TenantId: payload.TenantId,
       SessionId: payload.SessionId,
     },
     {
@@ -132,7 +123,6 @@ export function exportPDF(payload: {
 }
 
 export function exportWord(payload: {
-  TenantId: string;
   SessionId: string;
   index: number;
   title?: string;
@@ -140,7 +130,6 @@ export function exportWord(payload: {
   return exportGet(
     `${API_BASE}/api/export/word`,
     {
-      TenantId: payload.TenantId,
       SessionId: payload.SessionId,
     },
     {
@@ -150,9 +139,7 @@ export function exportWord(payload: {
   );
 }
 
-
 export function exportExcel(payload: {
-  TenantId: string;
   SessionId: string;
   index: number;
   sheet_name?: string;
@@ -160,7 +147,6 @@ export function exportExcel(payload: {
   return exportGet(
     `${API_BASE}/api/export/excel`,
     {
-      TenantId: payload.TenantId,
       SessionId: payload.SessionId,
     },
     {
@@ -170,9 +156,7 @@ export function exportExcel(payload: {
   );
 }
 
-
 export function exportPNG(payload: {
-  TenantId: string;
   SessionId: string;
   index: number;
   width?: number;
@@ -181,7 +165,6 @@ export function exportPNG(payload: {
   return exportGet(
     `${API_BASE}/api/export/png`,
     {
-      TenantId: payload.TenantId,
       SessionId: payload.SessionId,
     },
     {
